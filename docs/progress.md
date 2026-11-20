@@ -132,3 +132,13 @@ Thay đổi test cũ có lý do: pickup cần chênh cao và không cộng đi�
 - Token ước tính thủ công Phase 2: khoảng 40.000–70.000 token nội dung đọc/sinh, sai số lớn, không phải số đo billing; chi phí chưa được công cụ cung cấp. Tái dùng toolchain, tách module theo nhiệm vụ và dùng scenario ngắn trước kiểm tra cả Đêm để tiết kiệm; phần UI QA có nhiều lượt chỉnh camera, cần gom các tiêu chí hình ảnh sớm hơn ở lần sau.
 
 Clone sạch commit `4e30074` đã chạy `npm ci --offline` và `npm run verify` thành công (30/30, build đạt). Tái lập scenario Phase 2 khớp byte, SHA-256 `099E14EC752C623CE170D1B3B36A68ED67F767D7B4D6463552541A8AD9276C46`; clone tạm đã được dọn. Thay đổi tiếp theo chỉ bổ sung dòng bằng chứng này. Mốc thời gian Coach chưa được cung cấp nên không tuyên bố tag đúng hạn.
+
+## Phase 3 — Ticket-03, Contract v1.2
+
+- Thực hiện đúng Change Request: dầu đèn theo đơn vị nguyên 1/60, châm dầu/thắp lại, vùng an toàn theo ngưỡng 30, Bóng Mực `drain`, thắng ở bình minh, sức chứa tăng và công thức điểm mới.
+- UI có thanh dầu, nhấp nháy dưới 30, đèn tắt xẹp/vết rách, HUD sức chứa và bảng màu dễ phân biệt lưu localStorage. Browser QA thấy thời lượng Đêm 1 là 04:00, HUD cần 3/5, cài đặt mới có thể bật và vẫn giữ sau tải lại.
+- ADR: `docs/ADR-001-lantern-fuel-and-dawn.md`. Breaking changes: `CHANGELOG.md`.
+- Test cũ được đổi có lý do: kỳ vọng thời lượng 300/330/360 đổi thành 240/270/300; test thắng `all_lit` sớm và fixture 50 đom đóm đổi thành thắng `dawn_survived`; budget Đêm 3 đổi 21.600 thành 18.000 tick. Không skip test.
+- `npm run verify` đạt 38/38 test và build Vite thành công. Scenario `phase-3.json` chạy CLI thật 120 tick để ghi snapshot fuel và `fuel_drain` mỗi 60 tick vào `docs/proof/phase-3.jsonl`.
+- Giới hạn: chưa chơi thủ công trọn ba Đêm; kiểm chứng UI tập trung vào HUD/cài đặt và kiểm chứng luật bằng test/CLI. Chưa làm Phase 4, video hay Release cuối.
+- AI: OpenAI Codex đọc Ticket-03, sửa logic/UI/test/tài liệu và chạy kiểm chứng; không dùng subagent, không thêm dependency. Token Phase 3 ước tính thủ công 18.000–30.000, không phải số billing; chi phí không được cung cấp.

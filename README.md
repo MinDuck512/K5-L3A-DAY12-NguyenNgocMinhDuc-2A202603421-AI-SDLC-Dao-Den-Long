@@ -1,6 +1,6 @@
 # Đảo Đèn Lồng — AI SDLC
 
-Bản Phase 2: ba Đêm, bản đồ và thông số chuẩn Ticket-02, Contract **v1.1**. Mây gom đom đóm, thắp các đèn và tránh Bóng Mực/Gió Lạc trước bình minh. Phase 3–4 chưa triển khai. Video/Release cuối cùng chưa có.
+Bản Phase 3: Ticket-03, Contract **v1.2**. Mây phải giữ ít nhất 60% đèn còn sáng tới bình minh; đèn hao dầu và Bóng Mực có thể hút dầu. Phase 4 chưa triển khai. Video/Release cuối cùng chưa có.
 
 ## Cài và chạy
 
@@ -19,11 +19,11 @@ Mở địa chỉ Local, chọn **Bắt đầu**, đọc lời Ông Đăng rồi
 | Kéo chuột | Xoay camera |
 | Space | Nhảy khi chạm đất |
 | Shift | Lướt 14 m/s trong 0,2 s; hồi 1,5 s |
-| E | Nạp vào một đèn chưa sáng gần nhất trong 2 m |
+| E | Nạp, châm dầu hoặc thắp lại đèn nhận được gần nhất trong 2 m |
 | F | Tỏa Sáng, tốn 3 đom đóm; hồi 3 s |
 | Esc / P | Tạm dừng / tiếp tục |
 
-Gom tối đa 10 đom đóm, mỗi đèn cần 10 và nhớ phần đã nạp. Điểm +10/đom đóm **nạp**, +100/đèn, +5/Bóng Mực trúng pulse (kể cả đang choáng); thắng cộng `floor(giây còn lại)*2 + 50*Ngọn Lửa`. Không cộng điểm khi nhặt. Đêm 1/2/3 có 5/6/7 đèn và 300/330/360 giây.
+Sức chứa bắt đầu 10, tăng 2 mỗi lần thắp thành công và tối đa 20. Đèn mới cần 10, thắp lại cần 5; đèn sáng có 100 dầu, tự hao 1/giây và mất vùng an toàn dưới 30. Đêm 1/2/3 dài 240/270/300 giây, cần giữ lần lượt 3/5, 4/6, 5/7 đèn sáng khi hết giờ. Điểm theo Ticket-03; không còn thưởng thời gian. Cài đặt có bảng màu dễ phân biệt và được lưu.
 
 Bục tròn vàng tự phóng Mây qua đảo hoặc lên tầng; cầu tre không có lan can. Bùa đỏ viền vàng tăng tốc và bỏ hồi chiêu lướt trong 10 s. Gió Lạc cướp đom đóm; pulse lúc nó đang mang đồ trả lại đồ rơi. Rơi khỏi đảo mất 1 máu và toàn bộ đom đóm, chờ 1 s để hồi sinh. Tạm dừng có Tiếp tục / Chơi lại Đêm / Cài đặt / Về menu. Âm lượng và độ nhạy được lưu trong trình duyệt.
 
@@ -32,15 +32,16 @@ Bục tròn vàng tự phóng Mây qua đảo hoặc lên tầng; cầu tre khô
 ```bash
 npm run verify
 node src/headless.js --seed 1 --night 2 --scenario tests/scenarios/phase-2.json --inputs tests/scenarios/phase-2.inputs.json --ticks 120 --snapshot-every 10 --out output.jsonl
+node src/headless.js --seed 1 --night 1 --scenario tests/scenarios/phase-3.json --inputs tests/scenarios/phase-3.inputs.json --ticks 120 --snapshot-every 60 --out output.jsonl
 ```
 
-CLI hỗ trợ Đêm 1–3, snapshot mỗi 10 tick mặc định, `--seed` âm/dương, `--scenario`, `--inputs`. Logic 60 Hz độc lập DOM/GPU. Input giữ giá trị cũ nếu không được nhắc lại; nút kích hoạt ở cạnh lên. Pause chỉ tăng tick, mọi bộ đếm chạy theo sim_tick. Dữ liệu sai trả mã 2/stderr. Output JSONL có snapshot/event/end và các trường 1.1.
+CLI hỗ trợ Đêm 1–3, snapshot mỗi 10 tick mặc định, `--seed` âm/dương, `--scenario`, `--inputs`. Logic 60 Hz độc lập DOM/GPU. Input giữ giá trị cũ nếu không được nhắc lại; nút kích hoạt ở cạnh lên. Pause chỉ tăng tick, mọi bộ đếm chạy theo sim_tick. Dữ liệu sai trả mã 2/stderr. Output JSONL có snapshot/event/end và các trường 1.2.
 
-`npm run build` tạo web tĩnh ở `dist/`; `npm run preview` xem bản build. CI trên Ubuntu chạy test rồi build. [Contract và tuning](game.contract.json), [test cơ chế và CLI](tests/phase-2.test.js), [spec/giả định/retro](docs/progress.md).
+`npm run build` tạo web tĩnh ở `dist/`; `npm run preview` xem bản build. CI trên Ubuntu chạy test rồi build. [Contract và tuning](game.contract.json), [test Phase 3](tests/phase-3.test.js), [ADR nhiên liệu/bình minh](docs/ADR-001-lantern-fuel-and-dawn.md), [breaking changes](CHANGELOG.md), [spec/kiểm chứng](docs/progress.md).
 
 Đo mẫu 1280×720 đạt trên 140 FPS trên máy kiểm tra; 21.600 tick headless với random/wind tắt chạy khoảng 0,12 s. Đây là kết quả theo cấu hình/kịch bản cụ thể; xem [số đo và cấu hình](docs/proof/phase-2-performance.json), cùng giới hạn kiểm chứng trong ghi chép.
 
-Bằng chứng Phase 2: [test/build](docs/proof/phase-2-verify.txt), [JSONL mẫu](docs/proof/phase-2.jsonl), [Đêm 2](docs/proof/phase-2-night2.jpg), [Đêm 3](docs/proof/phase-2-night3.jpg). Scenario mẫu chỉ phục vụ kiểm thử, không thay bản đồ mặc định. Bằng chứng Phase 1 vẫn ở tag `phase-1`; một số test được cập nhật vì Ticket-02 thay luật, lý do nằm trong ghi chép.
+Bằng chứng Phase 3: [JSONL hút dầu](docs/proof/phase-3.jsonl) và kết quả `npm run verify` ghi trong [tiến độ](docs/progress.md). Bằng chứng Phase 1–2 và các tag cũ được giữ nguyên.
 
 ## Sáng tạo của tôi
 

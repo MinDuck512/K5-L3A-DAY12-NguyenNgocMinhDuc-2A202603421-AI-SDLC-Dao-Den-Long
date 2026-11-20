@@ -10,19 +10,19 @@ export const PALETTE = {
 };
 export function worldFor(night) {
   if (night === 1) return {
-    night, name: 'Đảo Bến', duration: 300, spawn: [0, 0, 0], islands: [[0,0,0,40]], pads: [], interval: 480, maxShades: 6,
+    night, name: 'Đảo Bến', duration: 240, spawn: [0, 0, 0], islands: [[0,0,0,40]], pads: [], interval: 480, maxShades: 6,
     lamps: [[0,0,25],[23.8,0,7.7],[14.7,0,-20.2],[-14.7,0,-20.2],[-23.8,0,7.7]],
     motePoints: [...ring(12,8), ...ring(33,16)], shadePoints: ring(37,12,15), charms: [],
   };
   if (night === 2) return {
-    night, name: 'Hai đảo cầu tre', duration: 330, spawn: [0,0,0], islands: [[0,0,0,28],[70,0,0,28]], interval: 420, maxShades: 8,
+    night, name: 'Hai đảo cầu tre', duration: 270, spawn: [0,0,0], islands: [[0,0,0,28],[70,0,0,28]], interval: 420, maxShades: 8,
     pads: [{pos:[20,0,18], vy:14, speed:24, target:[70,0,0]}, {pos:[50,0,-18], vy:14, speed:24, target:[0,0,0]}],
     lamps: [[0,0,20],[17,0,-10],[-17,0,-10],[70,0,20],[87,0,-10],[53,0,-10]],
     motePoints: [0,70].flatMap(x=>[...ring(10,4,0,[x,0,0]), ...ring(22,8,0,[x,0,0])]),
     shadePoints: [0,70].flatMap(x=>ring(26,8,22.5,[x,0,0])), charms: [[35,0,0]],
   };
   return {
-    night, name: 'Đảo tháp chuông', duration: 360, spawn: [0,0,-30], islands: [[0,0,0,45]], interval: 360, maxShades: 10,
+    night, name: 'Đảo tháp chuông', duration: 300, spawn: [0,0,-30], islands: [[0,0,0,45]], interval: 360, maxShades: 10,
     pads: [{pos:[0,3,13], vy:12, speed:8, target:[0,3,-100]}],
     lamps: [[0,6,6],[18,3,10],[-18,3,10],[35,0,-10],[-35,0,-10],[20,0,-35],[-20,0,-35]],
     motePoints: [...ring(34,18), ...Array.from({length:8},(_,i)=>{ const a=(i+1)*20*Math.PI/180; return [18*Math.cos(a),3,18*Math.sin(a)]; }), ...ring(5,4,45,[0,6,0])],

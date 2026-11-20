@@ -13,7 +13,7 @@ const close=(a,b,tolerance=1e-7)=>assert.ok(Math.abs(a-b)<tolerance,`${a} != ${b
 test('pause freezes all gameplay counters, snapshots and held button edges',()=>{
  const g=quiet(2,{player:{invuln_ticks:50,dash_cd_ticks:40,pulse_cd_ticks:30,charm_ticks:600},charms:[{id:'C1',pos:[10,0,0],available:false,respawn_ticks:200}]});
  act(g,{pause:true});const frozen=snapshot(g);run(g,60,{pause:true,dash:true,move:[1,0]});
- assert.equal(g.tick,61);assert.equal(g.sim_tick,0);assert.equal(g.state,'paused');assert.equal(g.time_left_s,330);assert.deepEqual(snapshot(g).player,frozen.player);assert.equal(g.charms[0].respawn,200);
+ assert.equal(g.tick,61);assert.equal(g.sim_tick,0);assert.equal(g.state,'paused');assert.equal(g.time_left_s,270);assert.deepEqual(snapshot(g).player,frozen.player);assert.equal(g.charms[0].respawn,200);
  act(g);act(g,{pause:true});assert.equal(g.state,'playing');assert.equal(g.sim_tick,1);assert.equal(g.player.invuln,49);
 });
 test('dash follows facing when still, lasts 12 ticks, holds air height, no invulnerability',()=>{
@@ -72,13 +72,14 @@ test('pulse repeated on stunned shade refreshes and scores every target every ac
  const g=quiet(1,{player:{carried:10},shades:[{id:'S1',pos:[1,.8,0]}]});act(g,{pulse:true});assert.equal(g.score,5);
  act(g);g.player.pulseCd=0;g.shades[0].pos=[1,.8,0];act(g,{pulse:true});assert.equal(g.score,10);assert.equal(g.shades[0].left,120);
 });
-test('no flames always loses; all-lit wins even when time expires; v1.1 snapshot complete',()=>{
- const lamps=worldFor(1).lamps.map((_,i)=>({id:`L${i+1}`,lit:true}));const won=quiet(1,{time_left_s:1/60,lanterns:lamps});act(won);assert.equal(won.state,'won');
+test('no flames always loses; enough lit lanterns win only at dawn; v1.2 snapshot keeps Phase 2 fields',()=>{
+ const lamps=worldFor(1).lamps.map((_,i)=>({id:`L${i+1}`,lit:true}));const early=quiet(1,{lanterns:lamps});act(early);assert.equal(early.state,'playing');
+ const won=quiet(1,{time_left_s:1/60,lanterns:lamps});act(won);assert.equal(won.state,'won');assert.equal(won.reason,'dawn_survived');
  const lost=quiet(1,{player:{flames:0},lanterns:lamps});act(lost);assert.equal(lost.reason,'no_flames');
  const state=snapshot(quiet(3));for(const field of ['night','wind','motes','drifters','charms'])assert.ok(field in state);for(const field of ['vel','grounded','invuln','dash_cd_s','pulse_cd_s','charm_s'])assert.ok(field in state.player);
 });
 
-test('headless scenario per new gameplay feature and full 21600 tick deterministic budget',()=>{
+test('headless scenario per Phase 2 feature and full Phase 3 night budget',()=>{
  const folder=mkdtempSync(join(tmpdir(),'dao-p2-'));const out=join(folder,'out.jsonl'),scenario=join(folder,'scenario.json'),inputs=join(folder,'inputs.json');
  const cli=(night,ticks,frames,s)=>{writeFileSync(scenario,JSON.stringify({random_motes:false,random_shades:false,random_drifters:false,wind_enabled:false,...s}));writeFileSync(inputs,JSON.stringify({frames}));const result=spawnSync(process.execPath,['src/headless.js','--night',String(night),'--seed','1','--ticks',String(ticks),'--scenario',scenario,'--inputs',inputs,'--snapshot-every','1','--out',out],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);return readFileSync(out,'utf8').trim().split('\n').map(JSON.parse);};
  try{
@@ -90,8 +91,8 @@ test('headless scenario per new gameplay feature and full 21600 tick determinist
   r=cli(2,90,[],{player:{pos:[20,0,18]}});assert.ok(r.at(-2).player.pos[0]>45);
   r=cli(3,65,[],{player:{pos:[0,3,13]}});assert.equal(r.at(-2).player.pos[1],6);
   r=cli(3,1801,[],{wind_enabled:true});assert.equal(r.at(-2).wind.active,true);
-  const started=performance.now();r=cli(3,21600,[],{});assert.equal(r.at(-1).ticks,21600);assert.ok(performance.now()-started<30000);
-  const first=readFileSync(out,'utf8');cli(3,21600,[],{});assert.equal(readFileSync(out,'utf8'),first);
+  const started=performance.now();r=cli(3,18000,[],{});assert.equal(r.at(-1).ticks,18000);assert.ok(performance.now()-started<30000);
+  const first=readFileSync(out,'utf8');cli(3,18000,[],{});assert.equal(readFileSync(out,'utf8'),first);
  }finally{for(const name of readdirSync(folder))unlinkSync(join(folder,name));rmdirSync(folder);}
 });
 

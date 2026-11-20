@@ -22,7 +22,7 @@ test('tick 0 preserves scenario without events or score; lantern overrides merge
 });
 test('fixed 60 Hz movement, normalized diagonal and camera yaw', () => {
   const forward = quiet(); advance(forward, 60, { move: [0, 1] });
-  close(forward.player.pos[2], TUNING.player_speed); close(forward.time_left_s, 299);
+  close(forward.player.pos[2], TUNING.player_speed); close(forward.time_left_s, 239);
   const diagonal = quiet(); advance(diagonal, 60, { move: [1, 1] });
   close(Math.hypot(diagonal.player.pos[0], diagonal.player.pos[2]), TUNING.player_speed);
   const yaw = quiet(); advance(yaw, 60, { move: [0, 1], cam_yaw_deg: 90 });
@@ -139,10 +139,9 @@ test('headless CLI: JSONL, tick semantics, persisted inputs, deterministic outpu
     assert.equal(run(['--ticks', '0']).status, 0); assert.equal(records().length, 2);
     assert.equal(run(['--seed', '-7', '--ticks', '0']).status, 0);
     assert.equal(run(['--scenario', 'tests/scenarios/win.json', '--inputs', 'tests/scenarios/win.inputs.json', '--snapshot-every', '1']).status, 0);
-    const win = records(); assert.equal(win.at(-1).state, 'won'); assert.equal(win.at(-1).ticks, 9);
-    assert.equal(win.filter((record) => record.name === 'lantern_lit').length, 5);
-    assert.equal(win.filter((record) => record.name === 'mote_picked').length, 50);
-    assert.equal(win.at(-1).score, 1748);
+    const win = records(); assert.equal(win.at(-1).state, 'won'); assert.equal(win.at(-1).ticks, 1);
+    assert.equal(win.find((record) => record.name === 'game_over').data.reason, 'dawn_survived');
+    assert.equal(win.at(-1).score, 597);
     for (const extra of [['--ticks', '-1'], ['--snapshot-every', '0'], ['--night', '4']]) {
       const result = run(extra); assert.equal(result.status, 2); assert.ok(result.stderr); assert.equal(result.stdout, '');
     }

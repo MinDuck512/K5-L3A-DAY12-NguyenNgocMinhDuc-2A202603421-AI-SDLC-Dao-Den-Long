@@ -2,7 +2,8 @@ import contract from '../game.contract.json' with { type: 'json' };
 import { worldFor, groundHeight, blocked } from './worlds.js';
 export { worldFor, groundHeight } from './worlds.js';
 export const TICK_RATE=60, FIXED_DT=1/60, TUNING=Object.freeze(contract.tuning), ISLAND_RADIUS=40;
-const EPS=1e-9, states=['spawning','wander','chase','recoil','stunned'];
+const EPS=1e-9, states=['spawning','wander','chase','recoil','stunned','drain'];
+const FUEL_SCALE=60,FUEL_MAX=TUNING.fuel_max*FUEL_SCALE,LOW_FUEL=TUNING.low_fuel_threshold*FUEL_SCALE;
 const dist=(a,b)=>Math.hypot(a[0]-b[0],a[2]-b[2]);
 const near=(a,b,r)=>dist(a,b)<=r+EPS;
 const idOrder=(a,b)=>{const x=/^(.*?)(\d+)$/.exec(a.id),y=/^(.*?)(\d+)$/.exec(b.id);return x&&y&&x[1]===y[1]?Number(x[2])-Number(y[2]):a.id<b.id?-1:a.id>b.id?1:0;};
@@ -28,8 +29,8 @@ export function validateScenario(s,night=1){
   if('time_left_s'in s)need(Number.isFinite(s.time_left_s)&&s.time_left_s>=0,'time_left_s không hợp lệ.');
   if('player'in s){need(isObject(s.player),'player không hợp lệ.');const p=s.player;
     if('pos'in p)need(vec(p.pos),'player.pos cần 3 số.');
-    for(const k of ['carried','flames','invuln_ticks','dash_cd_ticks','pulse_cd_ticks','charm_ticks'])if(k in p)need(nonnegative(p[k]),`${k} không hợp lệ.`);
-    if('carried'in p)need(p.carried<=10,'carried vượt sức chứa.');
+    for(const k of ['carried','flames','invuln_ticks','dash_cd_ticks','pulse_cd_ticks','charm_ticks','successful_lights'])if(k in p)need(nonnegative(p[k]),`${k} không hợp lệ.`);
+    const capacity=Math.min(20,10+2*(p.successful_lights??0));if('carried'in p)need(p.carried<=capacity,'carried vượt sức chứa.');
   }
   if('motes'in s)need(Array.isArray(s.motes)&&s.motes.every(vec),'motes cần mảng vị trí.');
   for(const k of ['lanterns','shades','drifters','charms'])if(k in s){
@@ -39,8 +40,10 @@ export function validateScenario(s,night=1){
       if(k==='shades'||k==='drifters')need(vec(item.pos),'Thiếu pos.');
       if('id'in item){need(typeof item.id==='string'&&item.id.length>0&&!ids.has(item.id),'id rỗng hoặc trùng.');ids.add(item.id);}
       if(k==='lanterns'){need(worldFor(night).lamps.some((_,i)=>item.id===`L${i+1}`),'lantern.id không tồn tại trong Đêm.');
-        if('deposited'in item)need(nonnegative(item.deposited)&&item.deposited<=10,'deposited không hợp lệ.');if('lit'in item)need(typeof item.lit==='boolean','lit phải là boolean.');}
+        if('deposited'in item)need(nonnegative(item.deposited)&&item.deposited<=10,'deposited không hợp lệ.');if('lit'in item)need(typeof item.lit==='boolean','lit phải là boolean.');
+        if('fuel'in item)need(Number.isFinite(item.fuel)&&item.fuel>=0&&item.fuel<=100,'fuel không hợp lệ.');if('ever_lit'in item)need(typeof item.ever_lit==='boolean','ever_lit phải là boolean.');}
       if(k==='shades'&&'state'in item)need(states.includes(item.state),'Trạng thái Bóng Mực không hợp lệ.');
+      if(k==='shades'&&'target_lantern_id'in item)need(item.target_lantern_id===null||worldFor(night).lamps.some((_,i)=>item.target_lantern_id===`L${i+1}`),'target_lantern_id không hợp lệ.');
       if(k==='drifters'&&'state'in item)need(['idle','chase','flee','removed'].includes(item.state),'Trạng thái Gió Lạc không hợp lệ.');
       for(const field of ['state_ticks_left','stolen','respawn_ticks'])if(field in item)need(nonnegative(item[field]),`${field} không hợp lệ.`);
       if('available'in item)need(typeof item.available==='boolean','available phải là boolean.');
@@ -52,7 +55,7 @@ const choose=(g,list)=>list.length?list[Math.floor(random(g)*list.length)]:undef
 function mote(g,p,kind='random',ttl=null){return {id:`M${g.nextMoteId++}`,pos:[...p],kind,ttl,born:g.sim_tick};}
 function shade(g,p,override={}){
   let id=override.id;while(!id||g.shades.some(s=>s.id===id)){id=`S${g.nextShadeId++}`;if(g.reserved.has(id))id=null;}
-  return {id,pos:[...p],state:override.state??'wander',left:override.state_ticks_left??0,push:[0,0],pushLeft:0,recoil:[0,0],safeLeft:0,...override};
+  return {id,pos:[...p],state:override.state??'wander',left:override.state_ticks_left??0,push:[0,0],pushLeft:0,recoil:[0,0],safeLeft:0,targetLanternId:override.target_lantern_id??null,...override};
 }
 export function createSimulation({seed=1,night=1,scenario={}}={}){
   need(Number.isSafeInteger(seed),'seed phải là số nguyên an toàn.');need([1,2,3].includes(night),'night phải là 1, 2, 3.');validateScenario(scenario,night);
@@ -62,12 +65,12 @@ export function createSimulation({seed=1,night=1,scenario={}}={}){
     previousInput:defaultInput(),nextMoteId:1,nextShadeId:1,nextDrifterId:1,reserved:new Set((scenario.shades??[]).map(s=>s.id).filter(Boolean)),
     randomMotes:scenario.random_motes??true,randomShades:scenario.random_shades??true,randomDrifters:scenario.random_drifters??true,
     windEnabled:scenario.wind_enabled??true,wind:{active:false,dir_deg:0,warning:false},motes:[],shades:[],drifters:[],
-    lanterns:world.lamps.map((p,i)=>({id:`L${i+1}`,pos:[...p],deposited:0,lit:false})),
+    lanterns:world.lamps.map((p,i)=>({id:`L${i+1}`,pos:[...p],deposited:0,lit:false,fuelTicks:0,ever_lit:false,relit_count:0})),
     charms:world.charms.map((p,i)=>({id:`C${i+1}`,pos:[...p],available:true,respawn:0})),
-    player:{pos:[...(given.pos??world.spawn)],carried:given.carried??0,flames:given.flames??3,vel:[0,0,0],vy:0,grounded:false,face:[0,1],invuln:given.invuln_ticks??0,dashCd:given.dash_cd_ticks??0,pulseCd:given.pulse_cd_ticks??0,charm:given.charm_ticks??0,dashLeft:0,dashDir:[0,1],launch:null,respawn:0},
+    player:{pos:[...(given.pos??world.spawn)],carried:given.carried??0,flames:given.flames??3,successfulLights:given.successful_lights??0,vel:[0,0,0],vy:0,grounded:false,face:[0,1],invuln:given.invuln_ticks??0,dashCd:given.dash_cd_ticks??0,pulseCd:given.pulse_cd_ticks??0,charm:given.charm_ticks??0,dashLeft:0,dashDir:[0,1],launch:null,respawn:0},
   };
   const h=groundHeight(world,g.player.pos[0],g.player.pos[2]);g.player.grounded=h!==null&&Math.abs(h-g.player.pos[1])<EPS;
-  for(const override of scenario.lanterns??[]){const l=g.lanterns.find(l=>l.id===override.id);Object.assign(l,override);l.pos=[...l.pos];l.lit=override.lit??l.deposited===10;if(l.lit)l.deposited=10;}
+  for(const override of scenario.lanterns??[]){const l=g.lanterns.find(l=>l.id===override.id);Object.assign(l,override);l.pos=[...l.pos];l.lit=override.lit??l.deposited===10;l.ever_lit=override.ever_lit??l.lit;l.fuelTicks=Math.round((override.fuel??(l.lit?100:0))*FUEL_SCALE);delete l.fuel;if(l.lit)l.deposited=override.deposited??10;else l.fuelTicks=0;}
   if(scenario.motes!==undefined)g.motes=scenario.motes.map(p=>mote(g,p));
   else if(g.randomMotes){const points=[...world.motePoints];for(let i=0;i<20&&points.length;i++)g.motes.push(mote(g,points.splice(Math.floor(random(g)*points.length),1)[0]));}
   for(const s of scenario.shades??[])g.shades.push(shade(g,s.pos,s));
@@ -78,16 +81,19 @@ export function createSimulation({seed=1,night=1,scenario={}}={}){
 }
 function move(g,entity,dx,dz){const old=[...entity.pos],next=[old[0]+dx,old[1],old[2]+dz];if(!blocked(g.world,old,next)){entity.pos[0]=next[0];entity.pos[2]=next[2];}}
 function away(a,b){const d=dist(a,b);return d>EPS?[(a[0]-b[0])/d,(a[2]-b[2])/d]:[1,0];}
+const capacity=(p)=>Math.min(TUNING.capacity_max,TUNING.carry_capacity+2*p.successfulLights);
+const hasSafeZone=(l)=>l.lit&&l.fuelTicks>=LOW_FUEL;
+const fuelValue=(l)=>Number((l.fuelTicks/FUEL_SCALE).toFixed(1));
 function drop(g,at,count,scatter=true){for(let i=0;i<count;i++){const angle=scatter?random(g)*Math.PI*2:0,r=scatter?1.5+random(g):0,x=at[0]+Math.cos(angle)*r,z=at[2]+Math.sin(angle)*r;g.motes.push(mote(g,[x,groundHeight(g.world,x,z)??at[1],z],'dropped',480));}}
 function safeMovement(g,s){
-  for(const l of g.lanterns)if(l.lit&&dist(s.pos,l.pos)<6-EPS){
+  for(const l of g.lanterns)if(hasSafeZone(l)&&dist(s.pos,l.pos)<6-EPS){
     const dir=away(s.pos,l.pos),gap=6-dist(s.pos,l.pos);
     if(!s.safeLeft)s.safeLeft=30;
     move(g,s,dir[0]*gap/s.safeLeft,dir[1]*gap/s.safeLeft);s.safeLeft=Math.max(0,s.safeLeft-1);return true;
   }
   s.safeLeft=0;return false;
 }
-function shadeMove(g,s,dx,dz){const before=[...s.pos];move(g,s,dx,dz);for(const l of g.lanterns)if(l.lit&&dist(before,l.pos)>=6-EPS&&dist(s.pos,l.pos)<6){const dir=away(s.pos,l.pos);s.pos[0]=l.pos[0]+dir[0]*6;s.pos[2]=l.pos[2]+dir[1]*6;}}
+function shadeMove(g,s,dx,dz){const before=[...s.pos];move(g,s,dx,dz);for(const l of g.lanterns)if(hasSafeZone(l)&&dist(before,l.pos)>=6-EPS&&dist(s.pos,l.pos)<6){const dir=away(s.pos,l.pos);s.pos[0]=l.pos[0]+dir[0]*6;s.pos[2]=l.pos[2]+dir[1]*6;}}
 function playerMotion(g,input,pressed,emit,waiting){
   const p=g.player;if(waiting){if(p.respawn===0){p.pos=[...g.world.spawn];p.vel=[0,0,0];p.vy=0;p.grounded=true;p.launch=null;p.invuln=90;}return false;}
   const [x,z]=input.move??[0,0],n=Math.max(1,Math.hypot(x,z)),a=(input.cam_yaw_deg??0)*Math.PI/180;
@@ -121,18 +127,25 @@ export function stepSimulation(g,input=defaultInput()){
   for(const s of g.shades){s.previousState=s.state;s.previousLeft=s.left;s.left=Math.max(0,s.left-1);if(s.pushLeft>0)s.pushLeft--;}
   for(const c of g.charms)if(!c.available){c.respawn=Math.max(0,c.respawn-1);if(c.respawn===0)c.available=true;}
   for(const m of g.motes)if(m.ttl!==null)m.ttl--;g.motes=g.motes.filter(m=>m.ttl===null||m.ttl>0);
+  for(const l of g.lanterns)if(l.lit)l.fuelTicks=Math.max(0,l.fuelTicks-TUNING.fuel_decay_per_s);
+  for(const s of g.shades)if(s.state==='drain'){
+    const l=g.lanterns.find(l=>l.id===s.targetLanternId);
+    if(l?.lit&&l.fuelTicks<LOW_FUEL&&near(s.pos,l.pos,2)){l.fuelTicks=Math.max(0,l.fuelTicks-TUNING.drain_per_s);if(g.sim_tick%60===0)emit('fuel_drain',{lantern_id:l.id,shade_id:s.id,fuel:fuelValue(l)});}
+  }
+  for(const l of g.lanterns)if(l.lit&&l.fuelTicks<=0){l.lit=false;l.fuelTicks=0;l.deposited=0;emit('lantern_out',{lantern_id:l.id});}
   if(g.night===3&&g.windEnabled){const cycle=g.sim_tick%1800;
     if(cycle===1680)g.wind.dir_deg=random(g)*360;g.wind.warning=cycle>=1680;g.wind.active=g.sim_tick>=1800&&cycle<300;}
   const active=playerMotion(g,input,pressed,emit,waiting);
   if(active){
-    g.motes=g.motes.filter(m=>{if(m.born>=g.sim_tick||p.carried>=10||!near(p.pos,m.pos,1)||Math.abs(p.pos[1]-m.pos[1])>1.5)return true;p.carried++;emit('mote_picked',{carried:p.carried});return false;});
+    g.motes=g.motes.filter(m=>{if(m.born>=g.sim_tick||p.carried>=capacity(p)||!near(p.pos,m.pos,1)||Math.abs(p.pos[1]-m.pos[1])>1.5)return true;p.carried++;emit('mote_picked',{carried:p.carried});return false;});
     for(const c of g.charms)if(c.available&&near(p.pos,c.pos,1)&&Math.abs(p.pos[1]-c.pos[1])<=1.5){c.available=false;c.respawn=2700;p.charm=600;emit('charm_picked',{charm_id:c.id,charm_ticks:600});}
-    if(pressed('interact')&&p.carried>0){const l=g.lanterns.filter(l=>!l.lit&&near(p.pos,l.pos,2)).sort((a,b)=>dist(p.pos,a.pos)-dist(p.pos,b.pos)||(a.id<b.id?-1:1))[0];
-      if(l){const amount=Math.min(p.carried,10-l.deposited);p.carried-=amount;l.deposited+=amount;g.score+=amount*10;emit('deposit',{lantern_id:l.id,amount,deposited:l.deposited});if(l.deposited===10){l.lit=true;g.score+=100;emit('lantern_lit',{lantern_id:l.id});}}}
+    if(pressed('interact')&&p.carried>0){const l=g.lanterns.filter(l=>(!l.lit||l.fuelTicks<FUEL_MAX)&&near(p.pos,l.pos,2)).sort((a,b)=>dist(p.pos,a.pos)-dist(p.pos,b.pos)||(a.id<b.id?-1:1))[0];
+      if(l&&l.lit){const before=l.fuelTicks,used=Math.min(p.carried,Math.ceil((FUEL_MAX-l.fuelTicks)/(TUNING.fuel_per_mote*FUEL_SCALE)));if(used>0){p.carried-=used;l.fuelTicks=Math.min(FUEL_MAX,l.fuelTicks+used*TUNING.fuel_per_mote*FUEL_SCALE);g.score+=used*TUNING.score.per_mote;emit('refuel',{lantern_id:l.id,amount:used,fuel:fuelValue(l)});if(before<LOW_FUEL&&l.fuelTicks>=LOW_FUEL)for(const s of g.shades)if(dist(s.pos,l.pos)<TUNING.safe_radius+EPS){s.safeLeft=30;if(s.state==='drain')s.state='wander';}}}
+      else if(l){const relight=l.ever_lit,cost=relight?TUNING.relight_cost:TUNING.lantern_cost,amount=Math.min(p.carried,cost-l.deposited);p.carried-=amount;l.deposited+=amount;g.score+=amount*TUNING.score.per_mote;emit('deposit',{lantern_id:l.id,amount,deposited:l.deposited});if(l.deposited===cost){l.lit=true;l.fuelTicks=FUEL_MAX;l.ever_lit=true;if(relight)l.relit_count++;p.successfulLights++;g.score+=relight?TUNING.score.per_relight:TUNING.score.per_first_light;emit('lantern_lit',{lantern_id:l.id,relight});}}}
   }
   if(active&&pressed('pulse')&&p.carried>=3&&p.pulseCd===0){
     p.carried-=3;p.pulseCd=180;const hit=[];const center=[p.pos[0],p.pos[1]+0.8,p.pos[2]];
-    for(const s of g.shades)if(Math.hypot(s.pos[0]-center[0],s.pos[1]-center[1],s.pos[2]-center[2])<=5+EPS){s.state='stunned';s.left=120;s.push=away(s.pos,p.pos);s.pushLeft=15;g.score+=5;hit.push(s.id);}
+    for(const s of g.shades)if(Math.hypot(s.pos[0]-center[0],s.pos[1]-center[1],s.pos[2]-center[2])<=5+EPS){const draining=s.state==='drain';s.state='stunned';s.left=120;s.push=away(s.pos,p.pos);s.pushLeft=15;s.targetLanternId=null;g.score+=draining?TUNING.score.per_drain_stun:TUNING.score.per_stun;hit.push(s.id);}
     for(const d of g.drifters)if(d.state!=='removed'&&Math.hypot(d.pos[0]-center[0],d.pos[1]-center[1],d.pos[2]-center[2])<=5+EPS){
       if(d.state==='chase'){d.state='flee';d.left=240;d.dir=away(d.pos,p.pos);}
       else if(d.state==='flee'&&d.stolen>0){drop(g,d.pos,d.stolen,false);emit('drifter_drop',{drifter_id:d.id,amount:d.stolen});d.stolen=0;d.left=120;}}
@@ -149,9 +162,12 @@ export function stepSimulation(g,input=defaultInput()){
       if(s.left===0)s.state='wander';continue;
     }
     if(s.state==='spawning'){if(s.left===0)s.state='wander';else continue;}
-    const gap=dist(p.pos,s.pos);if(s.state==='chase'&&gap>18)s.state='wander';if(s.state==='wander'&&gap<=12)s.state='chase';
+    const gap=dist(p.pos,s.pos);
+    if(s.state==='drain'){const l=g.lanterns.find(l=>l.id===s.targetLanternId);if(gap<6)s.state='chase';else if(!l?.lit||l.fuelTicks>=LOW_FUEL||!near(s.pos,l.pos,2)){s.state='wander';s.targetLanternId=null;}else continue;}
+    if(s.state==='chase'&&gap>18)s.state='wander';if(s.state==='wander'&&gap<=12)s.state='chase';
     if(s.state==='chase'){const d=away(p.pos,s.pos),speed=g.night===3?4.5:4;shadeMove(g,s,d[0]*Math.min(gap,speed/60),d[1]*Math.min(gap,speed/60));}
-    else {const angle=(g.sim_tick/240+Number(s.id.replace(/\D/g,'')))*0.5;shadeMove(g,s,Math.cos(angle)*2/60,Math.sin(angle)*2/60);}
+    else {const weak=g.lanterns.filter(l=>l.lit&&l.fuelTicks<LOW_FUEL).sort((a,b)=>dist(s.pos,a.pos)-dist(s.pos,b.pos)||(a.id<b.id?-1:1));const targets=weak.length?weak:g.lanterns.filter(l=>!l.lit).sort((a,b)=>dist(s.pos,a.pos)-dist(s.pos,b.pos)||(a.id<b.id?-1:1));const target=targets[0];s.targetLanternId=target?.id??null;
+      if(target&&weak.length&&near(s.pos,target.pos,2)){s.state='drain';continue;}if(target){const d=away(target.pos,s.pos),step=Math.min(dist(s.pos,target.pos),2/60);shadeMove(g,s,d[0]*step,d[1]*step);}else{const angle=(g.sim_tick/240+Number(s.id.replace(/\D/g,'')))*0.5;shadeMove(g,s,Math.cos(angle)*2/60,Math.sin(angle)*2/60);}}
     const h=groundHeight(g.world,s.pos[0],s.pos[2]);if(h!==null)s.pos[1]=h+0.8;
   }
   for(const d of g.drifters){
@@ -175,15 +191,14 @@ export function stepSimulation(g,input=defaultInput()){
   }
   if(g.night>=2&&g.randomDrifters&&g.sim_tick%1200===0&&g.drifters.length<2){const point=choose(g,g.world.shadePoints);let id;do{id=`D${g.nextDrifterId++}`;}while(g.drifters.some(d=>d.id===id));g.drifters.push({id,pos:[point[0],point[1]+0.8,point[2]],state:'idle',stolen:0,left:0,dir:[1,0],born:g.sim_tick});}
   if(p.flames<=0){g.state='lost';g.reason='no_flames';}
-  else if(g.lanterns.every(l=>l.lit)){g.state='won';g.reason='all_lit';g.score+=Math.floor(g.time_left_s)*2+50*p.flames;}
-  else if(g.time_left_s<=EPS){g.state='lost';g.reason='dawn';}
+  else if(g.time_left_s<=EPS){const lit=g.lanterns.filter(l=>l.lit);if(lit.length>=Math.ceil(TUNING.win_ratio*g.lanterns.length)){g.state='won';g.reason='dawn_survived';g.score+=lit.reduce((sum,l)=>sum+TUNING.score.per_lit_at_dawn+Math.floor(l.fuelTicks/FUEL_SCALE)*TUNING.score.per_fuel_at_dawn,0)+TUNING.score.per_flame_left*p.flames;}else{g.state='lost';g.reason='dawn';}}
   if(g.state==='won'||g.state==='lost')emit('game_over',{result:g.state,reason:g.reason});
   g.previousInput={...input};return events;
 }
 export function snapshot(g){const p=g.player;return {
   type:'snapshot',tick:g.tick,sim_tick:g.sim_tick,night:g.night,state:g.state,time_left_s:g.time_left_s,score:g.score,wind:{active:g.wind.active,dir_deg:g.wind.dir_deg},
-  player:{pos:pos(p.pos),vel:pos(p.vel),grounded:p.grounded,flames:p.flames,carried:p.carried,invuln:p.invuln>0,dash_cd_s:p.dashCd/60,pulse_cd_s:p.pulseCd/60,charm_s:p.charm/60},
-  lanterns:g.lanterns.map(l=>({...l,pos:pos(l.pos)})),shades:g.shades.map(s=>({id:s.id,pos:pos(s.pos),state:s.state})),
+  player:{pos:pos(p.pos),vel:pos(p.vel),grounded:p.grounded,flames:p.flames,carried:p.carried,capacity:capacity(p),invuln:p.invuln>0,dash_cd_s:p.dashCd/60,pulse_cd_s:p.pulseCd/60,charm_s:p.charm/60},
+  lanterns:g.lanterns.map(l=>({id:l.id,pos:pos(l.pos),deposited:l.deposited,lit:l.lit,fuel:fuelValue(l),ever_lit:l.ever_lit,relit_count:l.relit_count})),shades:g.shades.map(s=>({id:s.id,pos:pos(s.pos),state:s.state,target_lantern_id:s.targetLanternId})),
   motes_active:g.motes.length,motes:g.motes.map(m=>({id:m.id,pos:pos(m.pos),kind:m.kind,ttl_s:m.ttl===null?null:m.ttl/60})),
   drifters:g.drifters.map(d=>({id:d.id,pos:pos(d.pos),state:d.state,stolen:d.stolen})),charms:g.charms.map(c=>({id:c.id,available:c.available,respawn_s:c.respawn/60})),
 };}
