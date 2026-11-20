@@ -98,3 +98,35 @@ Sự cố khi chuẩn bị: mạng/cache trong sandbox làm preview và cài off
 - Harness: AGENTS.md ghi phạm vi, lệnh, quy tắc bằng chứng và không bỏ qua test đỏ. `npm run verify` bắt buộc test đạt trước build; CI dùng cùng lệnh trên push/PR. Chưa có người/agent độc lập review; không nhận phần điểm đó như đã đạt.
 - Token ước tính thủ công cho lượt chuẩn bị/triển khai: khoảng 30.000–50.000 token nội dung đọc và sinh, sai số lớn, không phải số đo tài khoản. Chi phí chưa xác định. Tiết kiệm bằng dùng một bộ logic/thông số, Node test có sẵn, hai dependency trực tiếp, một file ghi chép; không đoán phase sau hoặc sinh asset ngoài.
 - Bài học: đọc contract trước giúp tách mô phỏng khỏi GPU. Test đơn vị không thay được thao tác trình duyệt: lỗi phím nhanh chỉ lộ khi thử thật. Phần cần bổ sung ở lượt sau là ticket mới và kiểm tra hồi quy; video/đo hiệu năng làm theo yêu cầu được công bố.
+
+## Phase 2 — Ticket-02, Contract v1.1
+
+Nguồn: toàn bộ văn bản Ticket-02 người dùng dán, bảng Phần 1 và ảnh bảng màu mục 8. Thay toàn bộ thông số tự chọn của Phase 1 bằng số chuẩn. Không triển khai Phase 3.
+
+Kế hoạch: (1) bản đồ/va chạm dùng chung; (2) mô phỏng đúng thứ tự 12 bước + CLI 1.1; (3) cập nhật test cũ kèm lý do, scenario mới; (4) chuỗi Đêm, pause/cài đặt, âm thanh và HUD/màu; (5) kiểm chứng, bằng chứng và tag phase-2.
+
+Acceptance criteria Phần 3:
+1. Gió Lạc: Đêm 2/3 spawn mỗi 1200 sim_tick, tối đa 2; idle/chase/flee, cướp đúng một lần, pulse trả đồ; không bị chặn bởi safe/invuln.
+2. Bùa Gió: nhặt đúng vị trí, hiệu lực 600 tick, chạy 7.2, dash bỏ cooldown nhưng không nối khi đang dash; hồi bùa 2700 tick.
+3. Chuỗi Đêm: menu → giới thiệu Ông Đăng → chơi → kết quả → Đêm kế; thua thử lại Đêm hiện tại, thắng 3 hiện Bình Minh, tổng chỉ tính Đêm thắng.
+4. Pause: Esc/P, có tiếp tục/chơi lại/cài đặt/menu; headless tăng tick nhưng mọi gameplay counter/spawn đứng yên.
+5. Cài đặt: âm lượng, độ nhạy chuột lưu localStorage và khôi phục khi mở lại.
+6. Âm thanh: nhạc nền và đủ hiệu ứng nhặt/thắp/pulse/hit/nhảy/dash/thắng/thua/spawn/10 giây cuối. Âm thanh tự tổng hợp, chỉ bắt đầu sau thao tác người dùng.
+7. HUD: máu trái, giờ giữa cảnh báo <=30, đèn/điểm phải, 10 ô đom đóm dưới giữa, cooldown dưới phải, nhắc nạp và mũi tên ngoài màn hình.
+8. Màu: dùng đúng HEX trong ảnh; ambient = 0.15 + 0.55 * tiến độ đèn.
+
+Các chỗ ticket chưa định nghĩa, ghi rõ lựa chọn: spawn Đêm 3 tại (0,0,-30) để tránh xuất phát trong tháp/tầng cao; hướng pad Đêm 2 tính tới tâm đảo kia từ vị trí bục. Bóng Mực spawning 60 tick, wander 2 m/s; thực thể shade từ scenario không chỉ định state bắt đầu wander và phát hiện ngay. Điểm sương Gió Lạc dùng các điểm sinh Bóng Mực chuẩn. Đêm 2/3 sinh 2 bóng đầu tick 300, sau đó 1 theo khoảng 7/6 s. Sự kiện night_start tại bước đầu tiên. Bùa Đêm 2 chỉ có C1, Đêm 3 có C1/C2 theo danh sách vị trí. Có thể thay các giả định này nếu Coach làm rõ.
+
+Thay đổi test cũ có lý do: pickup cần chênh cao và không cộng điểm; pulse chuyển từ XZ/đẩy tức thời sang 3D/15 tick; hit có recoil/rơi đồ; mép đảo chuyển từ chặn sang rơi/hồi sinh; spawn theo mốc chuẩn; điểm thắng nhân 2; kiểm tra thắng bản đồ cũ không áp dụng cho bản đồ chuẩn mới. Giữ tag phase-1 và bằng chứng cũ nguyên vẹn.
+
+### Kiểm chứng và evaluation Phase 2
+
+- 30/30 test đạt: 15 kiểm tra hồi quy đã cập nhật đúng luật thay thế và 15 kiểm tra Phase 2 (có các tình huống CLI cho dash, pause, charm, steal/drop, hai pad, gió, Đêm 3 đủ 21.600 tick). Không skip hoặc ép test đạt. Chạy `npm run verify`, log thật ở `docs/proof/phase-2-verify.txt`.
+- Scenario mẫu: `tests/scenarios/phase-2.json` + `phase-2.inputs.json`, chạy `--night 2 --ticks 120 --snapshot-every 10`; output thật `docs/proof/phase-2.jsonl`. Pause ban đầu khiến sim_tick dừng, sau đó bùa/dash/pulse và Gió Lạc hoạt động. Bằng chứng Phase 1 không ghi đè.
+- Headless đủ 21.600 tick Đêm 3, tắt random/wind để đi đủ 360 giây tới dawn: 118,7264 ms (gồm khởi động Node và ghi JSONL), dưới ngưỡng 30.000 ms. Test chạy hai lần so cùng byte. Đo này không phải kịch bản đầy thực thể tối đa.
+- FPS mẫu Vite dev, 1280×720: Đêm 1 143,7; Đêm 2 143,3; Đêm 3 143,4. Đo trung bình callback render từ lúc vào Đêm tới thời điểm lấy mẫu/kết thúc, không phải cam kết cho mọi cấu hình/mọi thời điểm. CPU i7-12700H, Windows 10.0.26200, Node 24.21.0. Không đọc được thông tin GPU qua CIM trong sandbox nên không ghi đoán. Metadata thật ở `docs/proof/phase-2-performance.json`.
+- Browser QA: menu → giới thiệu Ông Đăng → Vào Đêm; đi/nhảy/lướt; pause hiển thị 4 lựa chọn, đồng hồ và cooldown đứng yên; mở cài đặt, đổi volume 0.4/sensitivity 0.5, tải lại và thấy giữ nguyên. Kiểm tra cả ba bản đồ bằng đường preview DEV đã ghi trong AGENTS.md. Đã thấy hai đảo/cầu tre/bùa và địa hình/tháp; kéo ngang/dọc đổi góc camera. Đã quan sát thua Đêm 3 và nút chơi lại. Ảnh thật: `phase-2-night2.jpg`, `phase-2-night3.jpg`.
+- Giới hạn: chưa chơi thắng cả ba Đêm liên tiếp bằng thao tác tay hoặc quay video, chưa có người/agent độc lập review. Mã chuỗi kết quả/tổng điểm đã triển khai; nhánh thắng/thua/điểm mô phỏng có kiểm tra tự động. Âm thanh được tổng hợp theo các sự kiện và nhạc nền sau thao tác bắt đầu; chưa có bản ghi âm để đối chiếu bằng tai. Không coi test nội bộ là bằng chứng mọi test ẩn đều đạt.
+- Các lỗi phát hiện và sửa: test cũ mặc định event đầu là hit/deposit, nay có night_start nên lọc theo tên; sửa kiểm tra theo contract mới, không bỏ test. Rà soát tìm lỗi Gió Lạc thả đồ theo vành thay vì tại chỗ và thứ tự S10/S2: sửa và bổ sung kiểm tra ID. Quan sát thấy cần đổi góc camera theo chiều dọc để xem tầng/tháp; sửa adapter giao diện. Đồng hồ chuẩn hóa đủ hai chữ số phút.
+- Harness: giữ một simulation dùng chung, world geometry và màu riêng `src/worlds.js`, Web Audio riêng `src/audio.js` để headless không cần GPU/âm thanh. AGENTS cập nhật quy tắc 12 bước/sim_tick, scenario qua CLI, preview chỉ DEV; CI cùng lệnh verify trên Ubuntu. Không thêm dependency trực tiếp.
+- Token ước tính thủ công Phase 2: khoảng 40.000–70.000 token nội dung đọc/sinh, sai số lớn, không phải số đo billing; chi phí chưa được công cụ cung cấp. Tái dùng toolchain, tách module theo nhiệm vụ và dùng scenario ngắn trước kiểm tra cả Đêm để tiết kiệm; phần UI QA có nhiều lượt chỉnh camera, cần gom các tiêu chí hình ảnh sớm hơn ở lần sau.

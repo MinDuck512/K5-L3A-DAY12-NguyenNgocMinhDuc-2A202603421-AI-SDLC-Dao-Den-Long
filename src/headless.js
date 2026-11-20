@@ -37,24 +37,24 @@ try {
   } else {
     const seed = integer(values.seed, '--seed', Number.MIN_SAFE_INTEGER);
     const night = integer(values.night, '--night', 1);
-    if (night !== 1) throw new TypeError('Phase 1 chỉ hỗ trợ --night 1.');
+    if (![1, 2, 3].includes(night)) throw new TypeError('night phải là 1, 2 hoặc 3.');
     const ticks = integer(values.ticks, '--ticks');
     const interval = integer(values['snapshot-every'], '--snapshot-every', 1);
     if (!values.out) throw new TypeError('Thiếu --out <file.jsonl>.');
     const inputs = values.inputs ? readJson(values.inputs) : { frames: [] };
     validateInputs(inputs);
-    const game = createSimulation({ seed, scenario: values.scenario ? readJson(values.scenario) : {} });
+    const game = createSimulation({ seed, night, scenario: values.scenario ? readJson(values.scenario) : {} });
     output = openSync(values.out, 'w');
     const emit = (record) => writeSync(output, `${JSON.stringify(record)}\n`);
     emit(snapshot(game));
     const input = defaultInput();
     let frameIndex = 0;
-    while (game.tick < ticks && game.state === 'playing') {
+    while (game.tick < ticks && !['won', 'lost'].includes(game.state)) {
       if (inputs.frames[frameIndex]?.tick === game.tick) {
         const { tick: ignoredTick, ...changes } = inputs.frames[frameIndex++];
         Object.assign(input, changes);
       }
-      for (const event of stepSimulation(game, input)) emit(event);
+      for (const event of stepSimulation(game, input)) if (event.name !== 'jump') emit(event);
       if (game.tick % interval === 0) emit(snapshot(game));
     }
     emit({ type: 'end', ticks: game.tick, state: game.state, score: game.score });

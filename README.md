@@ -1,56 +1,55 @@
-# Day 12 — AI SDLC: Đảo Đèn Lồng
+# Đảo Đèn Lồng — AI SDLC
 
-## Bản chơi Phase 1 — Đêm 1: Đảo Bến
+Bản Phase 2: ba Đêm, bản đồ và thông số chuẩn Ticket-02, Contract **v1.1**. Mây gom đom đóm, thắp các đèn và tránh Bóng Mực/Gió Lạc trước bình minh. Phase 3–4 chưa triển khai. Video/Release cuối cùng chưa có.
 
-Điều khiển Mây gom đom đóm, thắp lại 5 Đèn Lồng Lớn và tránh Bóng Mực trước bình minh. Đã triển khai PRD-0 và Test Contract v1.0; chưa triển khai Ticket-02/03/04 đang khóa trên lab board. Video và Release cuối cùng chưa có.
+## Cài và chạy
 
-Yêu cầu: Node.js >=22.12 và trình duyệt hỗ trợ WebGL 2. Cài và chạy trong hai lệnh, dùng được cho Windows/macOS/Linux:
+Node.js >=22.12, trình duyệt WebGL 2. Hai lệnh trên Windows/macOS/Linux:
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Mở địa chỉ Local do Vite in ra và chọn **Bắt đầu**. Bản web được thử trực tiếp trên Windows; CI đã cấu hình Ubuntu, kết quả CI phải xem trên GitHub sau khi push. `npm run build` tạo bản web tĩnh trong `dist/`; `npm run preview` xem bản build.
+Mở địa chỉ Local, chọn **Bắt đầu**, đọc lời Ông Đăng rồi **Vào Đêm**. Thắng để sang Đêm tiếp theo; thua được thử lại Đêm hiện tại. Thắng Đêm 3 hiện Bình Minh với tổng điểm các Đêm đã thắng.
 
-| Điều khiển | Hành động |
+| Phím | Hành động |
 |---|---|
-| WASD hoặc mũi tên | Đi theo hướng camera |
-| Space | Nhảy |
-| E | Nạp đom đóm vào đèn chưa sáng gần nhất trong 2,5 m |
-| F | Tỏa sáng: tốn 3 đom đóm, choáng/đẩy Bóng Mực trong 6 m |
-| Kéo chuột trên cảnh | Xoay camera |
-| Chơi lại | Bắt đầu lại sau thắng/thua |
+| WASD / mũi tên | Di chuyển theo camera |
+| Kéo chuột | Xoay camera |
+| Space | Nhảy khi chạm đất |
+| Shift | Lướt 14 m/s trong 0,2 s; hồi 1,5 s |
+| E | Nạp vào một đèn chưa sáng gần nhất trong 2 m |
+| F | Tỏa Sáng, tốn 3 đom đóm; hồi 3 s |
+| Esc / P | Tạm dừng / tiếp tục |
 
-Nhặt đom đóm tự động trong 1,2 m, chứa tối đa 10; mỗi đèn cần 10. Có 3 ngọn lửa, thời gian 300 giây. Thắp đủ 5 đèn thì thắng; hết máu hoặc hết giờ thì thua. Bóng Mực không vào vùng an toàn 5 m quanh đèn đã sáng. Không phạt rơi khỏi đảo (`fall_enabled=false`), không đánh rơi đom đóm khi trúng đòn (`hit_drop_ratio=0`); người chơi bị chặn ở mép đảo.
+Gom tối đa 10 đom đóm, mỗi đèn cần 10 và nhớ phần đã nạp. Điểm +10/đom đóm **nạp**, +100/đèn, +5/Bóng Mực trúng pulse (kể cả đang choáng); thắng cộng `floor(giây còn lại)*2 + 50*Ngọn Lửa`. Không cộng điểm khi nhặt. Đêm 1/2/3 có 5/6/7 đèn và 300/330/360 giây.
 
-Điểm: 10/đom đóm nhặt, 100/đèn thắp, 5/lần làm choáng mới. Khi thắng cộng phần nguyên số giây còn lại và 50/ngọn lửa còn lại. Thông số thực tế đọc từ [game.contract.json](game.contract.json), các giả định khác ở [ghi chép](docs/progress.md).
+Bục tròn vàng tự phóng Mây qua đảo hoặc lên tầng; cầu tre không có lan can. Bùa đỏ viền vàng tăng tốc và bỏ hồi chiêu lướt trong 10 s. Gió Lạc cướp đom đóm; pulse lúc nó đang mang đồ trả lại đồ rơi. Rơi khỏi đảo mất 1 máu và toàn bộ đom đóm, chờ 1 s để hồi sinh. Tạm dừng có Tiếp tục / Chơi lại Đêm / Cài đặt / Về menu. Âm lượng và độ nhạy được lưu trong trình duyệt.
 
-Chạy toàn bộ test và build: `npm run verify`. CI chạy cùng lệnh mỗi lần push/PR. Kiểm tra headless không mở cửa sổ hoặc dùng GPU:
-
-```bash
-node src/headless.js --seed 1 --night 1 --ticks 60 --out output.jsonl
-```
-
-Hỗ trợ `--scenario <file.json>`, `--inputs <file.json>`, `--snapshot-every <int>` (mặc định 10). Logic cố định 60 Hz, snapshot từ tick 0, output JSONL gồm snapshot/event/end. Seed âm cũng hợp lệ. Dữ liệu inputs/scenario sai định dạng trả mã 2; lỗi khác trả mã khác 0 và thông báo ở stderr.
-
-Tái lập scenario thắp đủ 5 đèn trong bộ kiểm tra:
+## Kiểm chứng và headless
 
 ```bash
-node src/headless.js --seed 1 --night 1 --scenario tests/scenarios/win.json --inputs tests/scenarios/win.inputs.json --ticks 60 --snapshot-every 1 --out output.jsonl
+npm run verify
+node src/headless.js --seed 1 --night 2 --scenario tests/scenarios/phase-2.json --inputs tests/scenarios/phase-2.inputs.json --ticks 120 --snapshot-every 10 --out output.jsonl
 ```
 
-Scenario này gom 50 đom đóm và đặt 5 đèn tại cùng một vị trí **chỉ để kiểm thử contract**; bản đồ chơi thật phân bố đèn và đom đóm rải rác. Test khác chạy bản đồ mặc định từ đầu tới thắng qua di chuyển/nhặt/nạp/tỏa sáng.
+CLI hỗ trợ Đêm 1–3, snapshot mỗi 10 tick mặc định, `--seed` âm/dương, `--scenario`, `--inputs`. Logic 60 Hz độc lập DOM/GPU. Input giữ giá trị cũ nếu không được nhắc lại; nút kích hoạt ở cạnh lên. Pause chỉ tăng tick, mọi bộ đếm chạy theo sim_tick. Dữ liệu sai trả mã 2/stderr. Output JSONL có snapshot/event/end và các trường 1.1.
 
-Bằng chứng: [báo cáo test/build](docs/proof/verify.txt), [output headless](docs/proof/phase-1.jsonl), [ảnh gameplay](docs/proof/phase-1.jpg). Truy vết yêu cầu, giới hạn kiểm chứng và nhật ký AI ở [docs/progress.md](docs/progress.md). Nguồn công cụ và hình học ở [CREDITS.md](CREDITS.md).
+`npm run build` tạo web tĩnh ở `dist/`; `npm run preview` xem bản build. CI trên Ubuntu chạy test rồi build. [Contract và tuning](game.contract.json), [test cơ chế và CLI](tests/phase-2.test.js), [spec/giả định/retro](docs/progress.md).
+
+Đo mẫu 1280×720 đạt trên 140 FPS trên máy kiểm tra; 21.600 tick headless với random/wind tắt chạy khoảng 0,12 s. Đây là kết quả theo cấu hình/kịch bản cụ thể; xem [số đo và cấu hình](docs/proof/phase-2-performance.json), cùng giới hạn kiểm chứng trong ghi chép.
+
+Bằng chứng Phase 2: [test/build](docs/proof/phase-2-verify.txt), [JSONL mẫu](docs/proof/phase-2.jsonl), [Đêm 2](docs/proof/phase-2-night2.jpg), [Đêm 3](docs/proof/phase-2-night3.jpg). Scenario mẫu chỉ phục vụ kiểm thử, không thay bản đồ mặc định. Bằng chứng Phase 1 vẫn ở tag `phase-1`; một số test được cập nhật vì Ticket-02 thay luật, lý do nằm trong ghi chép.
 
 ## Sáng tạo của tôi
 
-Hiện chỉ triển khai phần lõi PRD-0, chưa thêm cơ chế hoặc thực thể ngoài đề. Nhân vật và cảnh dùng hình học tạo bằng mã; không tải asset bên ngoài.
+Chỉ triển khai phần lõi yêu cầu. Hình học và âm thanh được tạo bằng mã, không thêm nhân vật/kẻ địch ngoài đề. Xem [CREDITS.md](CREDITS.md).
 
 ---
 
-Phần dưới là tài liệu đề bài ban đầu.
+## Đề bài lab ban đầu
+
 
 > **Cá nhân** (1 người / 1 MSSV) · Áp dụng SDLC cùng AI để xây một **game 3D** qua **4 phase**, từ yêu cầu ban đầu tới bản phát hành.
 > **Lab board + trợ giảng:** **[Đảo Đèn Lồng Lab](https://claude.ai/artifact/Q1RYyv1dxjUczzCbd2ZnoW)**

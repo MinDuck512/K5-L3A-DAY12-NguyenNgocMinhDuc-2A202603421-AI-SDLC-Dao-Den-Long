@@ -1,238 +1,189 @@
 import contract from '../game.contract.json' with { type: 'json' };
-
-export const TICK_RATE = 60;
-export const FIXED_DT = 1 / TICK_RATE;
-export const TUNING = Object.freeze(contract.tuning);
-export const ISLAND_RADIUS = 32;
-const EPSILON = 1e-9;
-const buttons = ['jump', 'interact', 'pulse'];
-const distance = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
-const within = (a, b, radius) => distance(a, b) <= radius + EPSILON;
-const round = (value) => Number(value.toFixed(3));
-const position = (pos) => pos.map(round);
-
-function requireValue(condition, message) {
-  if (!condition) throw new TypeError(message);
-}
-function object(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-function validPosition(value) {
-  return Array.isArray(value) && value.length === 3 && value.every(Number.isFinite);
-}
-
-export function validateScenario(scenario) {
-  requireValue(object(scenario), 'scenario phải là object.');
-  if ('player' in scenario) {
-    requireValue(object(scenario.player), 'scenario.player phải là object.');
-    const player = scenario.player;
-    if ('pos' in player) requireValue(validPosition(player.pos), 'player.pos phải gồm 3 số hữu hạn.');
-    if ('carried' in player) requireValue(Number.isSafeInteger(player.carried) && player.carried >= 0 && player.carried <= TUNING.carry_capacity, 'player.carried vượt sức chứa hoặc sai định dạng.');
-    if ('flames' in player) requireValue(Number.isSafeInteger(player.flames) && player.flames >= 0, 'player.flames phải là số nguyên không âm.');
+import { worldFor, groundHeight, blocked } from './worlds.js';
+export { worldFor, groundHeight } from './worlds.js';
+export const TICK_RATE=60, FIXED_DT=1/60, TUNING=Object.freeze(contract.tuning), ISLAND_RADIUS=40;
+const EPS=1e-9, states=['spawning','wander','chase','recoil','stunned'];
+const dist=(a,b)=>Math.hypot(a[0]-b[0],a[2]-b[2]);
+const near=(a,b,r)=>dist(a,b)<=r+EPS;
+const idOrder=(a,b)=>{const x=/^(.*?)(\d+)$/.exec(a.id),y=/^(.*?)(\d+)$/.exec(b.id);return x&&y&&x[1]===y[1]?Number(x[2])-Number(y[2]):a.id<b.id?-1:a.id>b.id?1:0;};
+const rounded=(v)=>Number(v.toFixed(3));
+const pos=(p)=>p.map(rounded);
+const isObject=(v)=>v!==null&&typeof v==='object'&&!Array.isArray(v);
+const vec=(v)=>Array.isArray(v)&&v.length===3&&v.every(Number.isFinite);
+function need(ok,message){if(!ok)throw new TypeError(message);}
+const nonnegative=(n)=>Number.isSafeInteger(n)&&n>=0;
+export function defaultInput(){return {move:[0,0],cam_yaw_deg:0,jump:false,interact:false,pulse:false,dash:false,pause:false};}
+export function validateInputs(input){
+  need(isObject(input)&&Array.isArray(input.frames),'inputs cần mảng frames.'); let last=-1;
+  for(const frame of input.frames){
+    need(isObject(frame)&&nonnegative(frame.tick)&&frame.tick>last,'tick phải là số nguyên không âm tăng nghiêm ngặt.');last=frame.tick;
+    if('move'in frame)need(Array.isArray(frame.move)&&frame.move.length===2&&frame.move.every(n=>Number.isFinite(n)&&Math.abs(n)<=1),'move cần 2 số trong [-1,1].');
+    if('cam_yaw_deg'in frame)need(Number.isFinite(frame.cam_yaw_deg),'cam_yaw_deg sai định dạng.');
+    for(const k of ['jump','interact','pulse','dash','pause'])if(k in frame)need(typeof frame[k]==='boolean',`${k} phải là boolean.`);
   }
-  for (const key of ['random_motes', 'random_shades']) {
-    if (key in scenario) requireValue(typeof scenario[key] === 'boolean', `${key} phải là boolean.`);
+}
+export function validateScenario(s,night=1){
+  need(isObject(s),'scenario phải là object.');
+  for(const k of ['random_motes','random_shades','random_drifters','wind_enabled'])if(k in s)need(typeof s[k]==='boolean',`${k} phải là boolean.`);
+  if('time_left_s'in s)need(Number.isFinite(s.time_left_s)&&s.time_left_s>=0,'time_left_s không hợp lệ.');
+  if('player'in s){need(isObject(s.player),'player không hợp lệ.');const p=s.player;
+    if('pos'in p)need(vec(p.pos),'player.pos cần 3 số.');
+    for(const k of ['carried','flames','invuln_ticks','dash_cd_ticks','pulse_cd_ticks','charm_ticks'])if(k in p)need(nonnegative(p[k]),`${k} không hợp lệ.`);
+    if('carried'in p)need(p.carried<=10,'carried vượt sức chứa.');
   }
-  if ('time_left_s' in scenario) requireValue(Number.isFinite(scenario.time_left_s) && scenario.time_left_s >= 0, 'time_left_s phải là số không âm.');
-  if ('motes' in scenario) requireValue(Array.isArray(scenario.motes) && scenario.motes.every(validPosition), 'motes phải là mảng các vị trí 3 số.');
-  if ('shades' in scenario) {
-    requireValue(Array.isArray(scenario.shades), 'shades phải là mảng.');
-    const ids = new Set();
-    for (const shade of scenario.shades) {
-      requireValue(object(shade) && validPosition(shade.pos), 'Mỗi shade cần pos gồm 3 số.');
-      if ('id' in shade) {
-        requireValue(typeof shade.id === 'string' && shade.id.length > 0 && !ids.has(shade.id), 'shade.id phải là chuỗi không rỗng, không trùng.');
-        ids.add(shade.id);
-      }
-    }
-  }
-  if ('lanterns' in scenario) {
-    requireValue(Array.isArray(scenario.lanterns), 'lanterns phải là mảng.');
-    const ids = new Set();
-    for (const lantern of scenario.lanterns) {
-      requireValue(object(lantern) && /^L[1-5]$/.test(lantern.id) && !ids.has(lantern.id), 'lantern.id phải là L1…L5, không trùng.');
-      ids.add(lantern.id);
-      if ('pos' in lantern) requireValue(validPosition(lantern.pos), 'lantern.pos sai định dạng.');
-      if ('lit' in lantern) requireValue(typeof lantern.lit === 'boolean', 'lantern.lit phải là boolean.');
-      if ('deposited' in lantern) requireValue(Number.isSafeInteger(lantern.deposited) && lantern.deposited >= 0 && lantern.deposited <= TUNING.lantern_cost, 'lantern.deposited sai định dạng.');
+  if('motes'in s)need(Array.isArray(s.motes)&&s.motes.every(vec),'motes cần mảng vị trí.');
+  for(const k of ['lanterns','shades','drifters','charms'])if(k in s){
+    need(Array.isArray(s[k]),`${k} phải là mảng.`);const ids=new Set();
+    for(const item of s[k]){need(isObject(item),`${k}: phần tử không hợp lệ.`);
+      if('pos'in item)need(vec(item.pos),'pos cần 3 số.');
+      if(k==='shades'||k==='drifters')need(vec(item.pos),'Thiếu pos.');
+      if('id'in item){need(typeof item.id==='string'&&item.id.length>0&&!ids.has(item.id),'id rỗng hoặc trùng.');ids.add(item.id);}
+      if(k==='lanterns'){need(worldFor(night).lamps.some((_,i)=>item.id===`L${i+1}`),'lantern.id không tồn tại trong Đêm.');
+        if('deposited'in item)need(nonnegative(item.deposited)&&item.deposited<=10,'deposited không hợp lệ.');if('lit'in item)need(typeof item.lit==='boolean','lit phải là boolean.');}
+      if(k==='shades'&&'state'in item)need(states.includes(item.state),'Trạng thái Bóng Mực không hợp lệ.');
+      if(k==='drifters'&&'state'in item)need(['idle','chase','flee','removed'].includes(item.state),'Trạng thái Gió Lạc không hợp lệ.');
+      for(const field of ['state_ticks_left','stolen','respawn_ticks'])if(field in item)need(nonnegative(item[field]),`${field} không hợp lệ.`);
+      if('available'in item)need(typeof item.available==='boolean','available phải là boolean.');
     }
   }
 }
-
-export function validateInputs(inputs) {
-  requireValue(object(inputs) && Array.isArray(inputs.frames), 'inputs cần mảng frames.');
-  let previous = -1;
-  for (const frame of inputs.frames) {
-    requireValue(object(frame) && Number.isSafeInteger(frame.tick) && frame.tick >= 0 && frame.tick > previous, 'tick của frames phải tăng nghiêm ngặt, là số nguyên không âm.');
-    previous = frame.tick;
-    if ('move' in frame) requireValue(Array.isArray(frame.move) && frame.move.length === 2 && frame.move.every((n) => Number.isFinite(n) && n >= -1 && n <= 1), 'move cần 2 số trong [-1,1].');
-    if ('cam_yaw_deg' in frame) requireValue(Number.isFinite(frame.cam_yaw_deg), 'cam_yaw_deg phải là số hữu hạn.');
-    for (const key of buttons) if (key in frame) requireValue(typeof frame[key] === 'boolean', `${key} phải là boolean.`);
-  }
+function random(g){g.rng=(g.rng+0x6d2b79f5)>>>0;let t=g.rng;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;}
+const choose=(g,list)=>list.length?list[Math.floor(random(g)*list.length)]:undefined;
+function mote(g,p,kind='random',ttl=null){return {id:`M${g.nextMoteId++}`,pos:[...p],kind,ttl,born:g.sim_tick};}
+function shade(g,p,override={}){
+  let id=override.id;while(!id||g.shades.some(s=>s.id===id)){id=`S${g.nextShadeId++}`;if(g.reserved.has(id))id=null;}
+  return {id,pos:[...p],state:override.state??'wander',left:override.state_ticks_left??0,push:[0,0],pushLeft:0,recoil:[0,0],safeLeft:0,...override};
 }
-export function defaultInput() {
-  return { move: [0, 0], cam_yaw_deg: 0, jump: false, interact: false, pulse: false };
-}
-function random(game) {
-  game.rng = (game.rng + 0x6d2b79f5) >>> 0;
-  let value = game.rng;
-  value = Math.imul(value ^ (value >>> 15), value | 1);
-  value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-  return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-}
-function newShade(game, pos, requestedId) {
-  let id = requestedId;
-  if (!id) do { id = `S${game.nextShadeId++}`; } while (game.reservedShadeIds.has(id));
-  game.reservedShadeIds.add(id);
-  return { id, pos: [...pos], state: 'chase', stunnedUntil: 0 };
-}
-function randomShade(game) {
-  const angle = random(game) * Math.PI * 2;
-  return newShade(game, [Math.cos(angle) * 30, 0.9, Math.sin(angle) * 30]);
-}
-
-export function createSimulation({ seed = 1, scenario = {} } = {}) {
-  requireValue(Number.isSafeInteger(seed), 'seed phải là số nguyên an toàn.');
-  validateScenario(scenario);
-  const game = {
-    tick: 0, state: 'playing', score: 0, reason: null,
-    time_left_s: scenario.time_left_s ?? TUNING.night1_duration_s,
-    initialTime: scenario.time_left_s ?? TUNING.night1_duration_s,
-    player: { pos: [0, 0, 0], carried: 0, flames: TUNING.flames, ...scenario.player, velocityY: 0, invulnerableUntil: 0, pulseReadyAt: 0 },
-    lanterns: Array.from({ length: TUNING.lantern_count_night1 }, (_, i) => {
-      const angle = (i / TUNING.lantern_count_night1) * Math.PI * 2;
-      return { id: `L${i + 1}`, pos: [Math.sin(angle) * 20, 0, -Math.cos(angle) * 20], lit: false, deposited: 0 };
-    }),
-    shades: [], motes: [], rng: seed >>> 0, nextShadeId: 1,
-    reservedShadeIds: new Set((scenario.shades ?? []).map((shade) => shade.id).filter(Boolean)),
-    randomShades: scenario.random_shades ?? true, previousInput: defaultInput(),
+export function createSimulation({seed=1,night=1,scenario={}}={}){
+  need(Number.isSafeInteger(seed),'seed phải là số nguyên an toàn.');need([1,2,3].includes(night),'night phải là 1, 2, 3.');validateScenario(scenario,night);
+  const world=worldFor(night), given=scenario.player??{};
+  const g={night,world,tick:0,sim_tick:0,state:'playing',score:0,reason:null,started:false,rng:seed>>>0,
+    initialTime:scenario.time_left_s??world.duration,time_left_s:scenario.time_left_s??world.duration,
+    previousInput:defaultInput(),nextMoteId:1,nextShadeId:1,nextDrifterId:1,reserved:new Set((scenario.shades??[]).map(s=>s.id).filter(Boolean)),
+    randomMotes:scenario.random_motes??true,randomShades:scenario.random_shades??true,randomDrifters:scenario.random_drifters??true,
+    windEnabled:scenario.wind_enabled??true,wind:{active:false,dir_deg:0,warning:false},motes:[],shades:[],drifters:[],
+    lanterns:world.lamps.map((p,i)=>({id:`L${i+1}`,pos:[...p],deposited:0,lit:false})),
+    charms:world.charms.map((p,i)=>({id:`C${i+1}`,pos:[...p],available:true,respawn:0})),
+    player:{pos:[...(given.pos??world.spawn)],carried:given.carried??0,flames:given.flames??3,vel:[0,0,0],vy:0,grounded:false,face:[0,1],invuln:given.invuln_ticks??0,dashCd:given.dash_cd_ticks??0,pulseCd:given.pulse_cd_ticks??0,charm:given.charm_ticks??0,dashLeft:0,dashDir:[0,1],launch:null,respawn:0},
   };
-  game.player.pos = [...game.player.pos];
-  for (const override of scenario.lanterns ?? []) {
-    const lantern = game.lanterns.find((item) => item.id === override.id);
-    Object.assign(lantern, override);
-    lantern.pos = [...lantern.pos];
-    lantern.lit = override.lit ?? (lantern.deposited >= TUNING.lantern_cost);
-    if (lantern.lit) lantern.deposited = TUNING.lantern_cost;
-  }
-  if (scenario.motes !== undefined) game.motes = scenario.motes.map((pos, i) => ({ id: `M${i + 1}`, pos: [...pos] }));
-  else if (scenario.random_motes !== false) {
-    game.motes = Array.from({ length: 80 }, (_, i) => {
-      const angle = random(game) * Math.PI * 2;
-      const radius = Math.sqrt(random(game)) * 26;
-      return { id: `M${i + 1}`, pos: [Math.cos(angle) * radius, 0, Math.sin(angle) * radius] };
-    });
-  }
-  game.shades = scenario.shades !== undefined
-    ? scenario.shades.map((shade) => newShade(game, shade.pos, shade.id))
-    : game.randomShades ? Array.from({ length: 3 }, () => randomShade(game)) : [];
-  return game;
+  const h=groundHeight(world,g.player.pos[0],g.player.pos[2]);g.player.grounded=h!==null&&Math.abs(h-g.player.pos[1])<EPS;
+  for(const override of scenario.lanterns??[]){const l=g.lanterns.find(l=>l.id===override.id);Object.assign(l,override);l.pos=[...l.pos];l.lit=override.lit??l.deposited===10;if(l.lit)l.deposited=10;}
+  if(scenario.motes!==undefined)g.motes=scenario.motes.map(p=>mote(g,p));
+  else if(g.randomMotes){const points=[...world.motePoints];for(let i=0;i<20&&points.length;i++)g.motes.push(mote(g,points.splice(Math.floor(random(g)*points.length),1)[0]));}
+  for(const s of scenario.shades??[])g.shades.push(shade(g,s.pos,s));
+  g.drifters=(scenario.drifters??[]).map((d,i)=>({id:d.id??`D${i+1}`,pos:[...d.pos],state:d.state??'idle',stolen:d.stolen??0,left:d.state_ticks_left??(d.state==='flee'?240:0),dir:away(d.pos,g.player.pos),born:0}));
+  while(g.drifters.some(d=>d.id===`D${g.nextDrifterId}`))g.nextDrifterId++;
+  if(scenario.charms!==undefined)g.charms=scenario.charms.map((c,i)=>({id:c.id??`C${i+1}`,pos:[...(c.pos??world.charms[i]??[0,0,0])],available:c.available??true,respawn:c.respawn_ticks??Math.round((c.respawn_s??0)*60)}));
+  return g;
 }
-
-function keepShadeOutsideLights(game, shade) {
-  for (const lantern of game.lanterns) {
-    if (!lantern.lit || !within(shade.pos, lantern.pos, TUNING.safe_radius)) continue;
-    const gap = distance(shade.pos, lantern.pos);
-    const dx = gap > EPSILON ? (shade.pos[0] - lantern.pos[0]) / gap : 1;
-    const dz = gap > EPSILON ? (shade.pos[2] - lantern.pos[2]) / gap : 0;
-    shade.pos[0] = lantern.pos[0] + dx * (TUNING.safe_radius + 0.001);
-    shade.pos[2] = lantern.pos[2] + dz * (TUNING.safe_radius + 0.001);
+function move(g,entity,dx,dz){const old=[...entity.pos],next=[old[0]+dx,old[1],old[2]+dz];if(!blocked(g.world,old,next)){entity.pos[0]=next[0];entity.pos[2]=next[2];}}
+function away(a,b){const d=dist(a,b);return d>EPS?[(a[0]-b[0])/d,(a[2]-b[2])/d]:[1,0];}
+function drop(g,at,count,scatter=true){for(let i=0;i<count;i++){const angle=scatter?random(g)*Math.PI*2:0,r=scatter?1.5+random(g):0,x=at[0]+Math.cos(angle)*r,z=at[2]+Math.sin(angle)*r;g.motes.push(mote(g,[x,groundHeight(g.world,x,z)??at[1],z],'dropped',480));}}
+function safeMovement(g,s){
+  for(const l of g.lanterns)if(l.lit&&dist(s.pos,l.pos)<6-EPS){
+    const dir=away(s.pos,l.pos),gap=6-dist(s.pos,l.pos);
+    if(!s.safeLeft)s.safeLeft=30;
+    move(g,s,dir[0]*gap/s.safeLeft,dir[1]*gap/s.safeLeft);s.safeLeft=Math.max(0,s.safeLeft-1);return true;
   }
+  s.safeLeft=0;return false;
 }
-
-export function stepSimulation(game, input = defaultInput()) {
-  if (game.state !== 'playing') return [];
-  const events = [];
-  game.tick += 1;
-  const emit = (name, data) => events.push({ type: 'event', tick: game.tick, name, data });
-  const pressed = (key) => Boolean(input[key]) && !game.previousInput[key];
-  const player = game.player;
-  const [x, z] = input.move ?? [0, 0];
-  const length = Math.max(1, Math.hypot(x, z));
-  const angle = (input.cam_yaw_deg ?? 0) * Math.PI / 180;
-  player.pos[0] += ((x * Math.cos(angle) + z * Math.sin(angle)) / length) * TUNING.player_speed * FIXED_DT;
-  player.pos[2] += ((-x * Math.sin(angle) + z * Math.cos(angle)) / length) * TUNING.player_speed * FIXED_DT;
-  const radius = Math.hypot(player.pos[0], player.pos[2]);
-  if (radius > ISLAND_RADIUS) { player.pos[0] *= ISLAND_RADIUS / radius; player.pos[2] *= ISLAND_RADIUS / radius; }
-  if (pressed('jump') && player.pos[1] <= EPSILON) player.velocityY = 6;
-  if (player.pos[1] > 0 || player.velocityY > 0) {
-    player.pos[1] = Math.max(0, player.pos[1] + player.velocityY * FIXED_DT);
-    player.velocityY -= 18 * FIXED_DT;
-    if (player.pos[1] === 0) player.velocityY = 0;
+function shadeMove(g,s,dx,dz){const before=[...s.pos];move(g,s,dx,dz);for(const l of g.lanterns)if(l.lit&&dist(before,l.pos)>=6-EPS&&dist(s.pos,l.pos)<6){const dir=away(s.pos,l.pos);s.pos[0]=l.pos[0]+dir[0]*6;s.pos[2]=l.pos[2]+dir[1]*6;}}
+function playerMotion(g,input,pressed,emit,waiting){
+  const p=g.player;if(waiting){if(p.respawn===0){p.pos=[...g.world.spawn];p.vel=[0,0,0];p.vy=0;p.grounded=true;p.launch=null;p.invuln=90;}return false;}
+  const [x,z]=input.move??[0,0],n=Math.max(1,Math.hypot(x,z)),a=(input.cam_yaw_deg??0)*Math.PI/180;
+  const direction=[(x*Math.cos(a)+z*Math.sin(a))/n,(-x*Math.sin(a)+z*Math.cos(a))/n];if(x||z)p.face=[...direction];
+  if(pressed('jump')&&p.grounded){p.vy=7;p.grounded=false;emit('jump',{});}
+  if(pressed('dash')&&p.dashLeft===0&&(p.dashCd===0||p.charm>0)){p.dashLeft=12;p.dashCd=p.charm>0?0:90;p.dashDir=[...p.face];emit('dash',{});}
+  for(const pad of g.world.pads)if(p.grounded&&near(p.pos,pad.pos,1)&&Math.abs(p.pos[1]-pad.pos[1])<0.1){
+    const d=away(pad.target,pad.pos);p.launch=[d[0]*pad.speed,d[1]*pad.speed];p.vy=pad.vy;p.grounded=false;break;
   }
-  game.motes = game.motes.filter((mote) => {
-    if (player.carried >= TUNING.carry_capacity || !within(player.pos, mote.pos, TUNING.pickup_radius)) return true;
-    player.carried += 1; game.score += TUNING.score.per_mote;
-    emit('mote_picked', { carried: player.carried });
-    return false;
-  });
-  if (pressed('interact') && player.carried > 0) {
-    const nearby = game.lanterns.filter((lantern) => !lantern.lit && within(player.pos, lantern.pos, TUNING.interact_radius));
-    nearby.sort((a, b) => distance(player.pos, a.pos) - distance(player.pos, b.pos) || (a.id < b.id ? -1 : 1));
-    const lantern = nearby[0];
-    if (lantern) {
-      const amount = Math.min(player.carried, TUNING.lantern_cost - lantern.deposited);
-      player.carried -= amount; lantern.deposited += amount;
-      emit('deposit', { lantern_id: lantern.id, amount, deposited: lantern.deposited });
-      if (lantern.deposited >= TUNING.lantern_cost) {
-        lantern.lit = true; game.score += TUNING.score.per_lantern;
-        emit('lantern_lit', { lantern_id: lantern.id });
-      }
-    }
-  }
-  if (pressed('pulse') && player.carried >= TUNING.pulse_cost && game.tick >= player.pulseReadyAt) {
-    player.carried -= TUNING.pulse_cost;
-    player.pulseReadyAt = game.tick + Math.ceil(TUNING.pulse_cooldown_s * TICK_RATE);
-    const stunnedIds = [];
-    for (const shade of game.shades) {
-      if (!within(player.pos, shade.pos, TUNING.pulse_radius)) continue;
-      if (shade.state !== 'stunned' || game.tick >= shade.stunnedUntil) game.score += TUNING.score.per_stun;
-      shade.state = 'stunned'; shade.stunnedUntil = game.tick + Math.ceil(TUNING.pulse_stun_s * TICK_RATE);
-      const gap = distance(player.pos, shade.pos);
-      shade.pos[0] += (gap > EPSILON ? (shade.pos[0] - player.pos[0]) / gap : 0) * TUNING.pulse_push_m;
-      shade.pos[2] += (gap > EPSILON ? (shade.pos[2] - player.pos[2]) / gap : 1) * TUNING.pulse_push_m;
-      stunnedIds.push(shade.id);
-    }
-    emit('pulse', { stunned_ids: stunnedIds });
-  }
-  if (game.randomShades && game.tick % (12 * TICK_RATE) === 0 && game.shades.length < 8) {
-    const shade = randomShade(game); game.shades.push(shade); emit('shade_spawned', { id: shade.id });
-  }
-  for (const shade of game.shades) {
-    keepShadeOutsideLights(game, shade);
-    if (shade.state === 'stunned' && game.tick >= shade.stunnedUntil) shade.state = 'chase';
-    if (shade.state === 'stunned') continue;
-    const gap = distance(shade.pos, player.pos);
-    if (gap > EPSILON) {
-      const move = Math.min(gap, TUNING.shade_speed * FIXED_DT);
-      shade.pos[0] += (player.pos[0] - shade.pos[0]) / gap * move;
-      shade.pos[2] += (player.pos[2] - shade.pos[2]) / gap * move;
-      keepShadeOutsideLights(game, shade);
-    }
-    if (player.flames > 0 && game.tick >= player.invulnerableUntil && within(player.pos, shade.pos, TUNING.shade_hit_radius)) {
-      player.flames -= 1; player.invulnerableUntil = game.tick + Math.ceil(TUNING.invuln_s * TICK_RATE);
-      emit('player_hit', { by: 'shade', flames: player.flames, dropped: 0 });
-    }
-  }
-  game.time_left_s = Math.max(0, game.initialTime - game.tick * FIXED_DT);
-  if (player.flames <= 0) { game.state = 'lost'; game.reason = 'no_flames'; }
-  else if (game.lanterns.every((lantern) => lantern.lit)) { game.state = 'won'; game.reason = 'all_lit'; }
-  else if (game.time_left_s <= EPSILON) { game.state = 'lost'; game.reason = 'dawn'; }
-  if (game.state !== 'playing') {
-    if (game.state === 'won') game.score += Math.floor(game.time_left_s) * TUNING.score.per_second_left + player.flames * TUNING.score.per_flame_left;
-    emit('game_over', { result: game.state, reason: game.reason });
-  }
-  game.previousInput = { ...input };
-  return events;
+  const speed=p.charm>0?7.2:6;let vx=direction[0]*speed,vz=direction[1]*speed;
+  if(p.launch)[vx,vz]=p.launch;if(p.dashLeft>0){vx=p.dashDir[0]*14;vz=p.dashDir[1]*14;}
+  if(g.wind.active){const a=g.wind.dir_deg*Math.PI/180;vx+=2*Math.cos(a);vz+=2*Math.sin(a);}
+  const old=[...p.pos];move(g,p,vx/60,vz/60);let floor=groundHeight(g.world,p.pos[0],p.pos[2]);
+  if(p.grounded&&(floor===null||floor<p.pos[1]-0.12))p.grounded=false;
+  if(p.grounded&&floor!==null)p.pos[1]=floor;
+  else if(!p.dashLeft){p.pos[1]+=p.vy/60-10/3600;p.vy-=20/60;
+    if(floor!==null&&old[1]>=floor-EPS&&p.pos[1]<=floor&&p.vy<=0){p.pos[1]=floor;p.vy=0;p.grounded=true;p.launch=null;}}
+  p.vel=[(p.pos[0]-old[0])*60,p.dashLeft?0:p.vy,(p.pos[2]-old[2])*60];if(p.dashLeft>0)p.dashLeft--;
+  if(p.pos[1]<-10){const lost=p.carried;p.carried=0;p.flames--;p.respawn=60;p.vel=[0,0,0];emit('player_hit',{by:'fall',flames:p.flames,dropped:0,lost});return false;}
+  return true;
 }
-
-export function snapshot(game) {
-  return {
-    type: 'snapshot', tick: game.tick, sim_tick: game.tick, state: game.state,
-    time_left_s: game.time_left_s, score: game.score,
-    player: { pos: position(game.player.pos), flames: game.player.flames, carried: game.player.carried },
-    lanterns: game.lanterns.map((lantern) => ({ ...lantern, pos: position(lantern.pos) })),
-    shades: game.shades.map((shade) => ({ id: shade.id, pos: position(shade.pos), state: shade.state })),
-    motes_active: game.motes.length, motes: game.motes.map((mote) => ({ id: mote.id, pos: position(mote.pos) })),
-  };
+export function stepSimulation(g,input=defaultInput()){
+  if(g.state==='won'||g.state==='lost')return [];
+  g.tick++;const events=[],emit=(name,data)=>events.push({type:'event',tick:g.tick,name,data});
+  const pressed=k=>Boolean(input[k])&&!g.previousInput[k];
+  if(!g.started){emit('night_start',{night:g.night});g.started=true;}
+  if(pressed('pause')){g.state=g.state==='paused'?'playing':'paused';emit(g.state==='paused'?'paused':'resumed',{});}
+  if(g.state==='paused'){g.previousInput={...input};return events;}
+  g.sim_tick++;g.time_left_s=Math.max(0,g.initialTime-g.sim_tick/60);const p=g.player,waiting=p.respawn>0;
+  for(const k of ['invuln','dashCd','pulseCd','charm','respawn'])p[k]=Math.max(0,p[k]-1);
+  for(const s of g.shades){s.previousState=s.state;s.previousLeft=s.left;s.left=Math.max(0,s.left-1);if(s.pushLeft>0)s.pushLeft--;}
+  for(const c of g.charms)if(!c.available){c.respawn=Math.max(0,c.respawn-1);if(c.respawn===0)c.available=true;}
+  for(const m of g.motes)if(m.ttl!==null)m.ttl--;g.motes=g.motes.filter(m=>m.ttl===null||m.ttl>0);
+  if(g.night===3&&g.windEnabled){const cycle=g.sim_tick%1800;
+    if(cycle===1680)g.wind.dir_deg=random(g)*360;g.wind.warning=cycle>=1680;g.wind.active=g.sim_tick>=1800&&cycle<300;}
+  const active=playerMotion(g,input,pressed,emit,waiting);
+  if(active){
+    g.motes=g.motes.filter(m=>{if(m.born>=g.sim_tick||p.carried>=10||!near(p.pos,m.pos,1)||Math.abs(p.pos[1]-m.pos[1])>1.5)return true;p.carried++;emit('mote_picked',{carried:p.carried});return false;});
+    for(const c of g.charms)if(c.available&&near(p.pos,c.pos,1)&&Math.abs(p.pos[1]-c.pos[1])<=1.5){c.available=false;c.respawn=2700;p.charm=600;emit('charm_picked',{charm_id:c.id,charm_ticks:600});}
+    if(pressed('interact')&&p.carried>0){const l=g.lanterns.filter(l=>!l.lit&&near(p.pos,l.pos,2)).sort((a,b)=>dist(p.pos,a.pos)-dist(p.pos,b.pos)||(a.id<b.id?-1:1))[0];
+      if(l){const amount=Math.min(p.carried,10-l.deposited);p.carried-=amount;l.deposited+=amount;g.score+=amount*10;emit('deposit',{lantern_id:l.id,amount,deposited:l.deposited});if(l.deposited===10){l.lit=true;g.score+=100;emit('lantern_lit',{lantern_id:l.id});}}}
+  }
+  if(active&&pressed('pulse')&&p.carried>=3&&p.pulseCd===0){
+    p.carried-=3;p.pulseCd=180;const hit=[];const center=[p.pos[0],p.pos[1]+0.8,p.pos[2]];
+    for(const s of g.shades)if(Math.hypot(s.pos[0]-center[0],s.pos[1]-center[1],s.pos[2]-center[2])<=5+EPS){s.state='stunned';s.left=120;s.push=away(s.pos,p.pos);s.pushLeft=15;g.score+=5;hit.push(s.id);}
+    for(const d of g.drifters)if(d.state!=='removed'&&Math.hypot(d.pos[0]-center[0],d.pos[1]-center[1],d.pos[2]-center[2])<=5+EPS){
+      if(d.state==='chase'){d.state='flee';d.left=240;d.dir=away(d.pos,p.pos);}
+      else if(d.state==='flee'&&d.stolen>0){drop(g,d.pos,d.stolen,false);emit('drifter_drop',{drifter_id:d.id,amount:d.stolen});d.stolen=0;d.left=120;}}
+    emit('pulse',{stunned_ids:hit});
+  }
+  for(const s of g.shades){
+    const safe=safeMovement(g,s);s.safetyThisTick=safe;if(safe)continue;
+    if(s.state==='stunned'){
+      if(s.pushLeft>0)shadeMove(g,s,s.push[0]*4/15,s.push[1]*4/15);
+      if(s.left===0)s.state='wander';else continue;
+    }
+    if(s.state==='recoil'){
+      if(s.previousState==='recoil')shadeMove(g,s,s.recoil[0]*2/60,s.recoil[1]*2/60);
+      if(s.left===0)s.state='wander';continue;
+    }
+    if(s.state==='spawning'){if(s.left===0)s.state='wander';else continue;}
+    const gap=dist(p.pos,s.pos);if(s.state==='chase'&&gap>18)s.state='wander';if(s.state==='wander'&&gap<=12)s.state='chase';
+    if(s.state==='chase'){const d=away(p.pos,s.pos),speed=g.night===3?4.5:4;shadeMove(g,s,d[0]*Math.min(gap,speed/60),d[1]*Math.min(gap,speed/60));}
+    else {const angle=(g.sim_tick/240+Number(s.id.replace(/\D/g,'')))*0.5;shadeMove(g,s,Math.cos(angle)*2/60,Math.sin(angle)*2/60);}
+    const h=groundHeight(g.world,s.pos[0],s.pos[2]);if(h!==null)s.pos[1]=h+0.8;
+  }
+  for(const d of g.drifters){
+    if(d.state==='flee'){d.left--;d.pos[0]+=d.dir[0]*7/60;d.pos[2]+=d.dir[1]*7/60;if(d.left<=0)d.state='removed';continue;}
+    const gap=dist(d.pos,p.pos);d.state=p.carried>=5&&gap<=15?'chase':'idle';
+    const dir=d.state==='chase'?away(p.pos,d.pos):[Math.cos(g.sim_tick/180),Math.sin(g.sim_tick/180)];
+    // Gió Lạc bay, không va chạm địa hình hoặc vùng an toàn.
+    d.pos[0]+=dir[0]*(d.state==='chase'?7:2)/60;d.pos[2]+=dir[1]*(d.state==='chase'?7:2)/60;
+  }
+  g.drifters=g.drifters.filter(d=>d.state!=='removed');
+  if(active){
+    for(const d of [...g.drifters].sort(idOrder))if(d.state==='chase'&&near(d.pos,p.pos,1.2)){const amount=Math.min(3,p.carried);p.carried-=amount;d.stolen=amount;d.state='flee';d.left=240;d.dir=away(d.pos,p.pos);emit('drifter_steal',{drifter_id:d.id,amount,carried:p.carried});}
+    if(p.invuln===0)for(const s of [...g.shades].sort(idOrder))if(!s.safetyThisTick&&!s.safeLeft&&['wander','chase'].includes(s.state)&&near(s.pos,p.pos,1)&&Math.abs(s.pos[1]-p.pos[1])<=1.5){
+      p.flames--;const amount=Math.floor(p.carried/2);p.carried-=amount;drop(g,p.pos,amount);p.invuln=90;s.state='recoil';s.left=60;s.recoil=away(s.pos,p.pos);emit('player_hit',{by:'shade',flames:p.flames,dropped:amount});break;}
+  }
+  if(g.randomMotes&&g.sim_tick%240===0&&g.motes.length<30){const vacant=g.world.motePoints.filter(p=>!g.motes.some(m=>m.kind==='random'&&dist(m.pos,p)<0.01&&Math.abs(m.pos[1]-p[1])<0.01));const p=choose(g,vacant);if(p)g.motes.push(mote(g,p));}
+  if(g.randomShades&&(g.sim_tick===300||(g.sim_tick>300&&(g.sim_tick-300)%g.world.interval===0))){
+    for(let i=0;i<(g.sim_tick===300?2:1)&&g.shades.length<g.world.maxShades;i++){
+      const point=choose(g,g.world.shadePoints.filter(s=>dist(s,p.pos)>=15&&!g.shades.some(q=>dist(q.pos,s)<1)));
+      if(point){const s=shade(g,[point[0],point[1]+0.8,point[2]],{state:'spawning',state_ticks_left:60});g.shades.push(s);emit('shade_spawned',{id:s.id});}}
+  }
+  if(g.night>=2&&g.randomDrifters&&g.sim_tick%1200===0&&g.drifters.length<2){const point=choose(g,g.world.shadePoints);let id;do{id=`D${g.nextDrifterId++}`;}while(g.drifters.some(d=>d.id===id));g.drifters.push({id,pos:[point[0],point[1]+0.8,point[2]],state:'idle',stolen:0,left:0,dir:[1,0],born:g.sim_tick});}
+  if(p.flames<=0){g.state='lost';g.reason='no_flames';}
+  else if(g.lanterns.every(l=>l.lit)){g.state='won';g.reason='all_lit';g.score+=Math.floor(g.time_left_s)*2+50*p.flames;}
+  else if(g.time_left_s<=EPS){g.state='lost';g.reason='dawn';}
+  if(g.state==='won'||g.state==='lost')emit('game_over',{result:g.state,reason:g.reason});
+  g.previousInput={...input};return events;
 }
+export function snapshot(g){const p=g.player;return {
+  type:'snapshot',tick:g.tick,sim_tick:g.sim_tick,night:g.night,state:g.state,time_left_s:g.time_left_s,score:g.score,wind:{active:g.wind.active,dir_deg:g.wind.dir_deg},
+  player:{pos:pos(p.pos),vel:pos(p.vel),grounded:p.grounded,flames:p.flames,carried:p.carried,invuln:p.invuln>0,dash_cd_s:p.dashCd/60,pulse_cd_s:p.pulseCd/60,charm_s:p.charm/60},
+  lanterns:g.lanterns.map(l=>({...l,pos:pos(l.pos)})),shades:g.shades.map(s=>({id:s.id,pos:pos(s.pos),state:s.state})),
+  motes_active:g.motes.length,motes:g.motes.map(m=>({id:m.id,pos:pos(m.pos),kind:m.kind,ttl_s:m.ttl===null?null:m.ttl/60})),
+  drifters:g.drifters.map(d=>({id:d.id,pos:pos(d.pos),state:d.state,stolen:d.stolen})),charms:g.charms.map(c=>({id:c.id,available:c.available,respawn_s:c.respawn/60})),
+};}

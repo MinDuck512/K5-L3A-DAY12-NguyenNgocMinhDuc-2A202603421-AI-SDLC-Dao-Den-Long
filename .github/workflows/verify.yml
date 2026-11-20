@@ -1,7 +1,7 @@
 name: Verify
 on: [push, pull_request]
 jobs:
-  phase-1:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

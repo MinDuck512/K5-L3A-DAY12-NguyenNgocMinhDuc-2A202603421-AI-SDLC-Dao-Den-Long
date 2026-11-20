@@ -1,0 +1,43 @@
+{
+  "node": "v24.21.0",
+  "os": "win32 10.0.26200",
+  "cpu": "12th Gen Intel(R) Core(TM) i7-12700H",
+  "headless": {
+    "night": 3,
+    "requested_ticks": 21600,
+    "end": {
+      "type": "end",
+      "ticks": 21600,
+      "state": "lost",
+      "score": 0
+    },
+    "elapsed_ms": 118.7264,
+    "limit_ms": 30000,
+    "scenario": "Random spawning and wind disabled to reach the complete 360-second simulation",
+    "passed": true
+  },
+  "fps": [
+    {
+      "fps": 143.7,
+      "height": 720,
+      "night": 1,
+      "time": "4:24",
+      "width": 1280
+    },
+    {
+      "fps": 143.3,
+      "height": 720,
+      "night": 2,
+      "time": "05:09",
+      "width": 1280
+    },
+    {
+      "fps": 143.4,
+      "height": 720,
+      "night": 3,
+      "time": "05:25",
+      "width": 1280
+    }
+  ],
+  "fps_method": "Average requestAnimationFrame rate from entering each night until sample/end, at 1280x720; development build, normal seeded map. These are sampled sessions, not an all-hardware guarantee."
+}

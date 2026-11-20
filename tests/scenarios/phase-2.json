@@ -1,0 +1,60 @@
+{
+  "random_motes": false,
+  "random_shades": false,
+  "random_drifters": false,
+  "wind_enabled": false,
+  "player": {
+    "carried": 8,
+    "invuln_ticks": 90
+  },
+  "motes": [
+    [
+      0,
+      0,
+      0
+    ]
+  ],
+  "charms": [
+    {
+      "id": "C1",
+      "pos": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "shades": [
+    {
+      "id": "S1",
+      "pos": [
+        3,
+        0.8,
+        0
+      ],
+      "state": "chase"
+    }
+  ],
+  "drifters": [
+    {
+      "id": "D1",
+      "pos": [
+        1,
+        0.8,
+        0
+      ],
+      "state": "chase"
+    },
+    {
+      "id": "D2",
+      "pos": [
+        3,
+        0.8,
+        0
+      ],
+      "state": "flee",
+      "stolen": 3,
+      "state_ticks_left": 240
+    }
+  ]
+}

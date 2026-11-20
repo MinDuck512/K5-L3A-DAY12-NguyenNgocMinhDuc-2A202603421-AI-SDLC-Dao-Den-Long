@@ -1,0 +1,64 @@
+
+> dao-den-long@0.0.0 verify
+> npm test && npm run build
+
+
+> dao-den-long@0.0.0 test
+> node --test
+
+✔ pause freezes all gameplay counters, snapshots and held button edges (4.3582ms)
+✔ dash follows facing when still, lasts 12 ticks, holds air height, no invulnerability (0.9254ms)
+✔ Bùa Gió has 600 tick effect, 2700 tick respawn, speed 7.2 and repeated dash without cooldown (9.543ms)
+✔ pads launch toward other island and land; bridge edges are fallable (0.991ms)
+✔ night 3 levels, ramps, vertical walls, bell and upper pad (1.179ms)
+✔ wind warns 2 seconds before each 30 second gust, pushes 2 m/s, stops when paused (8.3468ms)
+✔ Gió Lạc steals before shade hit even through invulnerability and safe zone (2.2115ms)
+✔ pulse frightens chase drifter; pulse on loaded flee returns all stolen motes (1.0669ms)
+✔ spawn schedules: motes at 240, shades at 300/780, drifters at 1200; no same-tick pickup (11.375ms)
+✔ hit drops floor(carried/2) at 1.5..2.5 m, TTL 480 and one hit per tick (1.8166ms)
+✔ safe newly lit light ejects shade within 30 ticks without damage; outside shade stays at rim (0.8948ms)
+✔ pulse repeated on stunned shade refreshes and scores every target every activation (0.332ms)
+✔ no flames always loses; all-lit wins even when time expires; v1.1 snapshot complete (0.6396ms)
+✔ headless scenario per new gameplay feature and full 21600 tick deterministic budget (2080.9543ms)
+✔ simultaneous contact uses numeric ID order S2 before S10 (0.3698ms)
+✔ tick 0 preserves scenario without events or score; lantern overrides merge by id (2.7849ms)
+✔ fixed 60 Hz movement, normalized diagonal and camera yaw (3.0925ms)
+✔ jump lands and holding jump does not automatically jump again (0.6425ms)
+✔ pickup respects XZ boundary, height, capacity and awards no pickup score (0.6624ms)
+✔ deposit is partial, nearest, within radius and requires a new press (0.6747ms)
+✔ pulse uses 3D boundary, stuns 120 ticks and pushes over 15 ticks (1.351ms)
+✔ insufficient pulse resource and cooldown prevent repeated spending (0.5767ms)
+✔ shade follows player; contact damages once per invulnerability interval (1.6254ms)
+✔ lit lantern excludes shades from safe radius and protects player (0.9749ms)
+✔ lose on no flames or dawn; terminal game cannot advance (0.8814ms)
+✔ fall bypasses invulnerability and waits exactly 60 ticks before respawn (0.4679ms)
+✔ scenario IDs do not collide with generated shade IDs; random spawning can be disabled (4.3003ms)
+✔ invalid scenario and input data reject malformed types and tick sequences (2.3775ms)
+✔ standard seeded island starts with 20 distinct motes, 5 exact lamps, no shades (0.7678ms)
+✔ headless CLI: JSONL, tick semantics, persisted inputs, deterministic output, win and errors (1135.4978ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2325.518
+
+> dao-den-long@0.0.0 build
+> vite build --base=./
+
+vite v8.3.8 building client environment for production...
+transforming...
+✓ 11 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                  3.71 kB │ gzip:   1.67 kB
+dist/assets/index-C8Q53jD6.js  594.22 kB │ gzip: 153.44 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 253ms
