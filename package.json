@@ -1,16 +1,18 @@
 {
   "name": "dao-den-long",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "node src/run.js",
     "build": "vite build --base=./",
     "preview": "vite preview --host 127.0.0.1",
     "headless": "node src/headless.js",
+    "bench": "node src/bench.js",
+    "soak": "node src/soak.js",
     "test": "node --test",
     "verify": "npm test && npm run build"
   },

@@ -8,7 +8,7 @@ const act=(g,changes={})=>stepSimulation(g,{...defaultInput(),...changes});
 const run=(g,n,changes={})=>{const events=[];for(let i=0;i<n;i++)events.push(...act(g,changes));return events;};
 
 test('contract 1.2 exposes required fuel tuning and shorter nights',()=>{
- assert.equal(contract.contract_version,'1.2');
+ assert.ok(['1.2', '1.3'].includes(contract.contract_version));
  assert.deepEqual([contract.tuning.night1_duration_s,contract.tuning.night2_duration_s,contract.tuning.night3_duration_s],[240,270,300]);
  for(const [key,value] of Object.entries({fuel_max:100,fuel_decay_per_s:1,fuel_per_mote:10,relight_cost:5,win_ratio:.6,drain_per_s:5,low_fuel_threshold:30,capacity_max:20}))assert.equal(contract.tuning[key],value);
 });

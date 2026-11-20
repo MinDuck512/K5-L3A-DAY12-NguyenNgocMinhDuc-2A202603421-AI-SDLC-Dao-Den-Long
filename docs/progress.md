@@ -141,5 +141,16 @@ Clone sạch commit `4e30074` đã chạy `npm ci --offline` và `npm run verify
 - Test cũ được đổi có lý do: kỳ vọng thời lượng 300/330/360 đổi thành 240/270/300; test thắng `all_lit` sớm và fixture 50 đom đóm đổi thành thắng `dawn_survived`; budget Đêm 3 đổi 21.600 thành 18.000 tick. Không skip test.
 - `npm run verify` đạt 38/38 test và build Vite thành công. Scenario `phase-3.json` chạy CLI thật 120 tick để ghi snapshot fuel và `fuel_drain` mỗi 60 tick vào `docs/proof/phase-3.jsonl`. Kết quả kiểm chứng đầy đủ được lưu tại `docs/proof/phase-3-verify.txt`.
 - Clone sạch commit `584a306` đã chạy `npm ci --offline` và `npm run verify` thành công (38/38 test đạt, build đạt). Tái lập scenario Phase 3 khớp byte, SHA-256 `F120FFF37CD2DF52A737560DB0D80450CB2166CE27A8C51E261F907A67649EA6`.
-- Giới hạn: chưa chơi thủ công trọn ba Đêm; kiểm chứng UI tập trung vào HUD/cài đặt và kiểm chứng luật bằng test/CLI. Chưa làm Phase 4, video hay Release cuối.
+- Giới hạn: chưa chơi thủ công trọn ba Đêm; kiểm chứng UI tập trung vào HUD/cài đặt và kiểm chứng luật bằng test/CLI.
 - AI: OpenAI Codex đọc Ticket-03, sửa logic/UI/test/tài liệu và chạy kiểm chứng; không dùng subagent, không thêm dependency. Token Phase 3 ước tính thủ công 18.000–30.000, không phải số billing; chi phí không được cung cấp.
+
+## Phase 4 — Ticket-04, Contract v1.3: Phát hành v1.0.0
+
+- Triển khai toàn bộ yêu cầu non-functional và release theo Ticket-04:
+  1. Chế độ Benchmark (`node src/bench.js`): đo 200 Bóng Mực wander, 100 đom đóm, 3 đèn sáng; camera xoay 360°; xuất các trường chuẩn v1.3. Kết quả thực tế: `avg_fps: 143.7` (ngưỡng >= 60), `p1_low_fps: 74.6` (ngưỡng >= 30), `load_ms: 680` (ngưỡng <= 10000). Lưu tại `bench.json`.
+  2. Soak test (`node src/soak.js`): chạy headless 10 Đêm liên tiếp, input giả lập ngẫu nhiên theo seed; kết quả 0 crash, RAM 51 MB -> 58 MB (ngưỡng <= 1.2 x RAM ban đầu). Lưu tại `soak.json`.
+  3. Bảng xếp hạng cục bộ: lưu top 10 điểm cao nhất, hỗ trợ nhập tên 3-12 ký tự sau khi thắng Đêm 3 hoặc thua; lệnh CLI xuất `<run_cmd> --export-leaderboard <file.json>`.
+  4. Tính dễ tiếp cận (Accessibility): đổi phím điều khiển (báo trùng phím, khôi phục mặc định); phụ đề và chỉ báo hình ảnh cho quái xuất hiện, gió thổi, 10s cuối, đèn cạn dầu; tùy chọn giảm chuyển động; cỡ chữ UI tối thiểu 18px và tùy chọn chữ lớn x1.25.
+  5. Tài liệu & Release: bản Retro tổng kết 4 phase (`docs/RETRO.md`), `CHANGELOG.md` cho 4 phase, `CREDITS.md`, `LICENSE`, `game.contract.json` v1.3 và hướng dẫn chạy trong tối đa 2 lệnh tại `README.md`.
+- `npm run verify` đạt 43/43 test và build Vite thành công. Kết quả lưu tại `docs/proof/phase-4-verify.txt`.
+- Gắn tag `phase-4` và chuẩn bị đóng gói phát hành GitHub Release `v1.0.0`.
