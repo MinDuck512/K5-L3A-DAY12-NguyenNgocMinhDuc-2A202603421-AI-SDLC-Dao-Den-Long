@@ -139,6 +139,7 @@ Clone sạch commit `4e30074` đã chạy `npm ci --offline` và `npm run verify
 - UI có thanh dầu, nhấp nháy dưới 30, đèn tắt xẹp/vết rách, HUD sức chứa và bảng màu dễ phân biệt lưu localStorage. Browser QA thấy thời lượng Đêm 1 là 04:00, HUD cần 3/5, cài đặt mới có thể bật và vẫn giữ sau tải lại.
 - ADR: `docs/ADR-001-lantern-fuel-and-dawn.md`. Breaking changes: `CHANGELOG.md`.
 - Test cũ được đổi có lý do: kỳ vọng thời lượng 300/330/360 đổi thành 240/270/300; test thắng `all_lit` sớm và fixture 50 đom đóm đổi thành thắng `dawn_survived`; budget Đêm 3 đổi 21.600 thành 18.000 tick. Không skip test.
-- `npm run verify` đạt 38/38 test và build Vite thành công. Scenario `phase-3.json` chạy CLI thật 120 tick để ghi snapshot fuel và `fuel_drain` mỗi 60 tick vào `docs/proof/phase-3.jsonl`.
+- `npm run verify` đạt 38/38 test và build Vite thành công. Scenario `phase-3.json` chạy CLI thật 120 tick để ghi snapshot fuel và `fuel_drain` mỗi 60 tick vào `docs/proof/phase-3.jsonl`. Kết quả kiểm chứng đầy đủ được lưu tại `docs/proof/phase-3-verify.txt`.
+- Clone sạch commit `584a306` đã chạy `npm ci --offline` và `npm run verify` thành công (38/38 test đạt, build đạt). Tái lập scenario Phase 3 khớp byte, SHA-256 `F120FFF37CD2DF52A737560DB0D80450CB2166CE27A8C51E261F907A67649EA6`.
 - Giới hạn: chưa chơi thủ công trọn ba Đêm; kiểm chứng UI tập trung vào HUD/cài đặt và kiểm chứng luật bằng test/CLI. Chưa làm Phase 4, video hay Release cuối.
 - AI: OpenAI Codex đọc Ticket-03, sửa logic/UI/test/tài liệu và chạy kiểm chứng; không dùng subagent, không thêm dependency. Token Phase 3 ước tính thủ công 18.000–30.000, không phải số billing; chi phí không được cung cấp.

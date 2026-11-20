@@ -41,11 +41,14 @@ CLI hỗ trợ Đêm 1–3, snapshot mỗi 10 tick mặc định, `--seed` âm/d
 
 Đo mẫu 1280×720 đạt trên 140 FPS trên máy kiểm tra; 21.600 tick headless với random/wind tắt chạy khoảng 0,12 s. Đây là kết quả theo cấu hình/kịch bản cụ thể; xem [số đo và cấu hình](docs/proof/phase-2-performance.json), cùng giới hạn kiểm chứng trong ghi chép.
 
-Bằng chứng Phase 3: [JSONL hút dầu](docs/proof/phase-3.jsonl) và kết quả `npm run verify` ghi trong [tiến độ](docs/progress.md). Bằng chứng Phase 1–2 và các tag cũ được giữ nguyên.
+Bằng chứng Phase 3: [JSONL hút dầu](docs/proof/phase-3.jsonl), [log kiểm chứng verify 38/38](docs/proof/phase-3-verify.txt) và kết quả `npm run verify` ghi trong [tiến độ](docs/progress.md). Bằng chứng Phase 1–2 và các tag cũ được giữ nguyên.
 
 ## Sáng tạo của tôi
 
-Chỉ triển khai phần lõi yêu cầu. Hình học và âm thanh được tạo bằng mã, không thêm nhân vật/kẻ địch ngoài đề. Xem [CREDITS.md](CREDITS.md).
+Triển khai sáng tạo bám sát phần lõi yêu cầu và giữ nguyên Test Contract:
+- **Tạo hình 3D hoàn toàn bằng mã (Procedural 3D):** Nhân vật Mây (áo nâu, nón lá, đèn nhỏ), 5 Đèn Lồng lớn (chao đèn, vết rách, lõi phát sáng), đom đóm hạt sáng và hiệu ứng vòng lan tỏa đều được dựng thuần bằng hình học Three.js, không phụ thuộc bất kỳ file texture hay 3D model bên ngoài.
+- **Hệ thống âm thanh tổng hợp thời gian thực (Procedural Web Audio):** Toàn bộ nhạc nền và hiệu ứng âm thanh (nhặt đom đóm, thắp đèn, lướt, nhảy, tỏa sáng, cảnh báo gió, đếm ngược) được tổng hợp bằng Web Audio API trong `src/audio.js`, dung lượng cực nhẹ và không cần tải tệp âm thanh ngoài.
+- **Tối ưu hóa hiệu năng:** Đạt trên 140 FPS trên màn hình kiểm tra, không gây giật lag và đảm bảo tương thích đa nền tảng. Xem thêm tại [CREDITS.md](CREDITS.md).
 
 ---
 
