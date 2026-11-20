@@ -1,0 +1,49 @@
+
+> dao-den-long@0.0.0 verify
+> npm test && npm run build
+
+
+> dao-den-long@0.0.0 test
+> node --test
+
+✔ tick 0 preserves scenario without events or score; lantern overrides merge by id (1.5133ms)
+✔ fixed 60 Hz movement, normalized diagonal and camera yaw (0.8072ms)
+✔ jump lands and holding jump does not automatically jump again (0.7251ms)
+✔ pickup includes XZ boundary regardless of visual height and respects capacity (0.3063ms)
+✔ deposit is partial, nearest, within radius and requires a new press (0.3555ms)
+✔ pulse uses the same boundary convention, charges once, stuns and pushes (0.5324ms)
+✔ insufficient pulse resource and cooldown prevent repeated spending (0.1674ms)
+✔ shade follows player; contact damages once per invulnerability interval (0.5412ms)
+✔ lit lantern excludes shades from safe radius and protects player (0.6777ms)
+✔ lose on no flames or dawn; terminal game cannot advance (0.349ms)
+✔ map boundary has no fall penalty when fall_enabled=false (0.7899ms)
+✔ scenario IDs do not collide with generated shade IDs; random spawning can be disabled (1.5951ms)
+✔ invalid scenario and input data reject malformed types and tick sequences (0.5673ms)
+✔ default seeded island can be won through normal movement, collection, deposits and pulse (38.7358ms)
+✔ headless CLI: JSONL, tick semantics, persisted inputs, deterministic output, win and errors (779.7462ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 925.223
+
+> dao-den-long@0.0.0 build
+> vite build --base=./
+
+vite v8.3.8 building client environment for production...
+transforming...
+✓ 9 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                  3.16 kB │ gzip:   1.57 kB
+dist/assets/index-z3KSnQSM.js  551.23 kB │ gzip: 138.61 kB
+
+✓ built in 189ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

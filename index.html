@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Đảo Đèn Lồng: giúp Mây gom đom đóm, thắp 5 đèn và tránh Bóng Mực." />
+    <link rel="icon" href="data:," />
+    <title>Đảo Đèn Lồng — Đêm 1 · Đảo Bến</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; overflow: hidden; background: #0b1025; color: #fff3d7; }
+      canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+      #hud { position: fixed; inset: 1rem 1rem auto; display: flex; justify-content: space-between; gap: .75rem; pointer-events: none; }
+      .panel { padding: .8rem 1rem; border: 1px solid #a7b3cf40; border-radius: .8rem; background: #0c1425df; }
+      h1 { margin: 0 0 .25rem; font-size: clamp(1.1rem, 3vw, 1.5rem); }
+      p { margin: .4rem 0; font-size: 1rem; line-height: 1.5; }
+      #stats { display: flex; flex-wrap: wrap; align-content: center; gap: .5rem 1.2rem; font-size: 1rem; }
+      #prompt { position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%); padding: .5rem 1rem; border-radius: .5rem; background: #12172bd9; text-align: center; pointer-events: none; }
+      #controls { position: fixed; bottom: 1rem; left: 1rem; right: 1rem; text-align: center; font-size: .9rem; color: #dce1ee; pointer-events: none; }
+      #overlay { position: fixed; inset: 0; display: grid; place-items: center; background: #080d1b99; padding: 1rem; }
+      #overlay[hidden] { display: none; }
+      .dialog { width: min(100%, 31rem); padding: 2rem; border: 1px solid #e5bf7466; border-radius: 1rem; background: #0d1729f5; text-align: center; }
+      h2 { margin: 0 0 .75rem; color: #ffd48b; font-size: 1.8rem; }
+      button { margin-top: 1rem; padding: .85rem 1.75rem; border: 0; border-radius: .5rem; background: #ffd28a; color: #291d13; font: 700 1rem system-ui; cursor: pointer; }
+      button:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+      #error { position: fixed; inset: auto 1rem 3rem; color: #ffc4c4; }
+      @media (max-width: 650px) { #hud { flex-direction: column; } .dialog { padding: 1.25rem; } #controls { font-size: .875rem; } }
+    </style>
+  </head>
+  <body>
+    <div id="hud">
+      <div class="panel"><h1>Đảo Đèn Lồng</h1><span>Đêm 1 · Đảo Bến</span></div>
+      <div id="stats" class="panel" aria-label="Trạng thái trò chơi"></div>
+    </div>
+    <p id="prompt" role="status">Gom đom đóm để thắp lại 5 đèn lớn.</p>
+    <p id="controls">WASD / phím mũi tên: đi · Space: nhảy · E: nạp đèn · F: tỏa sáng · Kéo chuột: xoay camera</p>
+    <div id="overlay">
+      <section class="dialog" aria-labelledby="dialog-title">
+        <h2 id="dialog-title">Đảo Đèn Lồng</h2>
+        <p id="dialog-message">Giúp Mây gom đom đóm và thắp lại 5 Đèn Lồng Lớn trước bình minh. Tránh Bóng Mực; dùng 3 đom đóm để tỏa sáng xua chúng đi.</p>
+        <p id="dialog-detail">Mỗi đèn cần 10 đom đóm. Bạn mang tối đa 10, có 3 ngọn lửa và 5 phút.</p>
+        <button id="play" type="button">Bắt đầu</button>
+      </section>
+    </div>
+    <p id="error" role="alert" hidden></p>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

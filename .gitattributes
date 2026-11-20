@@ -1,0 +1,2 @@
+docs/proof/*.jsonl -text
+docs/proof/*.txt -text -whitespace

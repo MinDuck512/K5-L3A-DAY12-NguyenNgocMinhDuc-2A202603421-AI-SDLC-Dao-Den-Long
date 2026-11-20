@@ -1,5 +1,57 @@
 # Day 12 — AI SDLC: Đảo Đèn Lồng
 
+## Bản chơi Phase 1 — Đêm 1: Đảo Bến
+
+Điều khiển Mây gom đom đóm, thắp lại 5 Đèn Lồng Lớn và tránh Bóng Mực trước bình minh. Đã triển khai PRD-0 và Test Contract v1.0; chưa triển khai Ticket-02/03/04 đang khóa trên lab board. Video và Release cuối cùng chưa có.
+
+Yêu cầu: Node.js >=22.12 và trình duyệt hỗ trợ WebGL 2. Cài và chạy trong hai lệnh, dùng được cho Windows/macOS/Linux:
+
+```bash
+npm ci
+npm run dev
+```
+
+Mở địa chỉ Local do Vite in ra và chọn **Bắt đầu**. Bản web được thử trực tiếp trên Windows; CI đã cấu hình Ubuntu, kết quả CI phải xem trên GitHub sau khi push. `npm run build` tạo bản web tĩnh trong `dist/`; `npm run preview` xem bản build.
+
+| Điều khiển | Hành động |
+|---|---|
+| WASD hoặc mũi tên | Đi theo hướng camera |
+| Space | Nhảy |
+| E | Nạp đom đóm vào đèn chưa sáng gần nhất trong 2,5 m |
+| F | Tỏa sáng: tốn 3 đom đóm, choáng/đẩy Bóng Mực trong 6 m |
+| Kéo chuột trên cảnh | Xoay camera |
+| Chơi lại | Bắt đầu lại sau thắng/thua |
+
+Nhặt đom đóm tự động trong 1,2 m, chứa tối đa 10; mỗi đèn cần 10. Có 3 ngọn lửa, thời gian 300 giây. Thắp đủ 5 đèn thì thắng; hết máu hoặc hết giờ thì thua. Bóng Mực không vào vùng an toàn 5 m quanh đèn đã sáng. Không phạt rơi khỏi đảo (`fall_enabled=false`), không đánh rơi đom đóm khi trúng đòn (`hit_drop_ratio=0`); người chơi bị chặn ở mép đảo.
+
+Điểm: 10/đom đóm nhặt, 100/đèn thắp, 5/lần làm choáng mới. Khi thắng cộng phần nguyên số giây còn lại và 50/ngọn lửa còn lại. Thông số thực tế đọc từ [game.contract.json](game.contract.json), các giả định khác ở [ghi chép](docs/progress.md).
+
+Chạy toàn bộ test và build: `npm run verify`. CI chạy cùng lệnh mỗi lần push/PR. Kiểm tra headless không mở cửa sổ hoặc dùng GPU:
+
+```bash
+node src/headless.js --seed 1 --night 1 --ticks 60 --out output.jsonl
+```
+
+Hỗ trợ `--scenario <file.json>`, `--inputs <file.json>`, `--snapshot-every <int>` (mặc định 10). Logic cố định 60 Hz, snapshot từ tick 0, output JSONL gồm snapshot/event/end. Seed âm cũng hợp lệ. Dữ liệu inputs/scenario sai định dạng trả mã 2; lỗi khác trả mã khác 0 và thông báo ở stderr.
+
+Tái lập scenario thắp đủ 5 đèn trong bộ kiểm tra:
+
+```bash
+node src/headless.js --seed 1 --night 1 --scenario tests/scenarios/win.json --inputs tests/scenarios/win.inputs.json --ticks 60 --snapshot-every 1 --out output.jsonl
+```
+
+Scenario này gom 50 đom đóm và đặt 5 đèn tại cùng một vị trí **chỉ để kiểm thử contract**; bản đồ chơi thật phân bố đèn và đom đóm rải rác. Test khác chạy bản đồ mặc định từ đầu tới thắng qua di chuyển/nhặt/nạp/tỏa sáng.
+
+Bằng chứng: [báo cáo test/build](docs/proof/verify.txt), [output headless](docs/proof/phase-1.jsonl), [ảnh gameplay](docs/proof/phase-1.jpg). Truy vết yêu cầu, giới hạn kiểm chứng và nhật ký AI ở [docs/progress.md](docs/progress.md). Nguồn công cụ và hình học ở [CREDITS.md](CREDITS.md).
+
+## Sáng tạo của tôi
+
+Hiện chỉ triển khai phần lõi PRD-0, chưa thêm cơ chế hoặc thực thể ngoài đề. Nhân vật và cảnh dùng hình học tạo bằng mã; không tải asset bên ngoài.
+
+---
+
+Phần dưới là tài liệu đề bài ban đầu.
+
 > **Cá nhân** (1 người / 1 MSSV) · Áp dụng SDLC cùng AI để xây một **game 3D** qua **4 phase**, từ yêu cầu ban đầu tới bản phát hành.
 > **Lab board + trợ giảng:** **[Đảo Đèn Lồng Lab](https://claude.ai/artifact/Q1RYyv1dxjUczzCbd2ZnoW)**
 
