@@ -86,6 +86,9 @@ Sự cố khi chuẩn bị: mạng/cache trong sandbox làm preview và cài off
 - Giao diện thật: đã quan sát Mây/nón lá/đèn nhỏ, đom đóm và Bóng Mực; di chuyển W nhặt 2 đom đóm được 20 điểm; E nạp đèn L1 từ 0 lên 2/10, carried về 0; Space nhảy; kéo chuột đổi camera. Đã quan sát mất hết máu, màn thua và nút chơi lại khôi phục 3 ngọn lửa, 5 phút, điểm 0. [Ảnh gameplay thật](proof/phase-1.jpg).
 - Đảo sáng dần được triển khai qua ánh sáng từng đèn và ánh sáng nền theo số đèn sáng. Nhánh thắng/thắp đèn/tỏa sáng được kiểm tra tự động; chưa quay video và chưa chơi thắng toàn màn bằng thao tác tay trên trình duyệt.
 - Nguồn bằng chứng phải nằm cùng commit với code khi gắn `phase-1`. Hướng dẫn tái lập ở README. Test/build thành công không phải cam kết vượt mọi test ẩn.
+- Kiểm tra clone sạch từ commit `2be9295`: `npm ci --offline` rồi `npm run verify` đạt 15/15 và build; chạy lại scenario bằng CLI khớp byte với file đã lưu, SHA-256 `15FF1CE5453243A5B974358B113AF3531484F3186B04E936528FB859396612A1`. Clone tạm được dọn sau khi kiểm tra. Thay đổi sau commit này chỉ bổ sung ghi chép kiểm chứng.
+- Trang GitHub đọc không đăng nhập trả HTTP 200 và nhãn Public. Sau khi người dùng báo Coach đã mở Phase 2, tải lại lab board vẫn thấy tab Phase 2 “Chưa phát hành”; đã thông báo cần link cập nhật/trạng thái từ Coach, không vượt khóa hoặc đoán ticket.
+- `.gitattributes` giữ nguyên byte các file bằng chứng. Log công cụ có khoảng trắng cuối dòng được giữ nguyên, không sửa tay để làm sạch báo cáo.
 
 ### Nhật ký AI và đánh giá
 
